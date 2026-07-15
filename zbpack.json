@@ -1,0 +1,4 @@
+{
+  "build_command": "pnpm build",
+  "start_command": "pnpm start"
+}

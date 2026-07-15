@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design token custom properties ── */
+:root {
+  /* Backgrounds / surfaces */
+  --color-bg:           oklch(98.5% 0 240);
+  --color-surface:      oklch(100% 0 240);
+  --color-surface-2:    oklch(97% 0 240);
+
+  /* Borders */
+  --color-border:        oklch(92% 0 240);
+  --color-border-strong: oklch(86% 0 240);
+
+  /* Ink / text */
+  --color-ink-900:  oklch(22% 0 240);
+  --color-ink-700:  oklch(38% 0 240);
+  --color-ink-500:  oklch(54% 0 240);
+  --color-ink-300:  oklch(72% 0 240);
+  --color-ink-200:  oklch(82% 0 240);
+
+  /* Primary accent — deep blue */
+  --color-accent:      oklch(45% 0.085 250);
+  --color-accent-soft: oklch(94% 0.025 250);
+  --color-accent-hover:oklch(40% 0.085 250);
+
+  /* Committee — 行政 (Admin): warm brown */
+  --color-admin:        oklch(52% 0.08 55);
+  --color-admin-soft:   oklch(95% 0.02 55);
+  --color-admin-border: oklch(80% 0.04 55);
+
+  /* Committee — 訓育 (Discipline): reddish-pink */
+  --color-discipline:        oklch(52% 0.12 15);
+  --color-discipline-soft:   oklch(95% 0.025 15);
+  --color-discipline-border: oklch(82% 0.05 15);
+
+  /* Committee — 資訊科技 (IT): teal */
+  --color-it:        oklch(50% 0.1 195);
+  --color-it-soft:   oklch(94% 0.025 195);
+  --color-it-border: oklch(80% 0.04 195);
+
+  /* Committee — 課程發展 (Curriculum): forest green */
+  --color-curriculum:        oklch(48% 0.1 145);
+  --color-curriculum-soft:   oklch(94% 0.025 145);
+  --color-curriculum-border: oklch(80% 0.04 145);
+
+  /* Committee — 課外活動 (ECA): violet */
+  --color-eca:        oklch(50% 0.12 300);
+  --color-eca-soft:   oklch(95% 0.025 300);
+  --color-eca-border: oklch(82% 0.05 300);
+
+  /* Sidebar */
+  --sidebar-width: 220px;
+}
+
+/* ── Base styles ── */
+@layer base {
+  html {
+    font-family: var(--font-inter, "Inter"), var(--font-noto-sans-tc, "Noto Sans TC"), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink-900);
+  }
+}
+
+/* ── Component helpers ── */
+@layer components {
+  /* Base card */
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.04);
+  }
+
+  /* Committee left-border accents */
+  .committee-border-admin {
+    border-left: 3px solid var(--color-admin);
+  }
+  .committee-border-discipline {
+    border-left: 3px solid var(--color-discipline);
+  }
+  .committee-border-it {
+    border-left: 3px solid var(--color-it);
+  }
+  .committee-border-curriculum {
+    border-left: 3px solid var(--color-curriculum);
+  }
+  .committee-border-eca {
+    border-left: 3px solid var(--color-eca);
+  }
+
+  /* Sidebar nav item */
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-ink-700);
+    transition: background-color 150ms ease, color 150ms ease;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .nav-item:hover {
+    background: var(--color-surface-2);
+    color: var(--color-ink-900);
+  }
+
+  .nav-item.active {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+  }
+}

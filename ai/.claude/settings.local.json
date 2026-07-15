@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__team__accept_task",
+      "Bash(ls:*)",
+      "mcp__team__complete_task"
+    ]
+  }
+}

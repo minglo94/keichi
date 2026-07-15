@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pwsh:*)",
+      "Bash(head:*)",
+      "Bash(test:*)",
+      "Bash(mount:*)",
+      "Bash(echo:*)",
+      "mcp__team__reply_to_team",
+      "Bash(cd:*)"
+    ]
+  }
+}

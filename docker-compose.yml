@@ -1,0 +1,33 @@
+# =============================================================================
+# 本地開發用 PostgreSQL（僅 dev 環境，不影響 Zeabur 線上資料庫）
+# -----------------------------------------------------------------------------
+# 啟動：  npm run db:up               （等於 docker compose up -d --wait）
+# 停止：  npm run db:down             （等於 docker compose down）
+# 重置：  npm run db:reset:local      （清空資料 → 重建 → push → seed）
+# 連線：  postgresql://postgres:postgres@localhost:5433/keichi
+#
+# 資料持久化於 named volume `keichi_pg_data`：單純 `down` 不會清空，
+# 只有 `down -v`（或 db:reset:local）才會抹掉資料。
+# 用 port 5433（而非預設 5432）以免與機器上其他專案衝突。
+# =============================================================================
+services:
+  db:
+    image: postgres:16
+    container_name: keichi-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: keichi
+    ports:
+      - "5433:5432"
+    volumes:
+      - keichi_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d keichi"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  keichi_pg_data:

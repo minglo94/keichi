@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:kcssteacher.zeabur.app)",
+      "Bash(test:*)",
+      "Bash(echo test:*)",
+      "WebFetch(domain:script.google.com)"
+    ]
+  }
+}
