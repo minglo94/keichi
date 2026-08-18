@@ -57,7 +57,7 @@ export function WelcomeEmail({
             開始學習
           </Button>
           <Hr style={hr} />
-          <Text style={footer}>AI 大智若愚 · 香港中學智能學習平台</Text>
+          <Text style={footer}>基智行政平台</Text>
         </Container>
       </Body>
     </Html>

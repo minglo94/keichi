@@ -27,8 +27,8 @@ export default function LoginPage() {
           <div className="w-24 h-24 mx-auto bg-white rounded-full flex items-center justify-center mb-6 shadow-2xl ring-4 ring-white/20 p-2">
             <Image src="/logo.png" alt="School Logo" width={80} height={80} priority className="object-contain" />
           </div>
-          <h1 className="text-4xl font-bold tracking-tight mb-2">基智若愚 ICHI</h1>
-          <p className="text-blue-200 text-lg tracking-widest uppercase font-light">Kei Chi Secondary School</p>
+          <h1 className="text-4xl font-bold tracking-tight mb-2">基智行政平台</h1>
+          <p className="text-blue-200 text-lg tracking-widest uppercase font-light">C.C.C. Kei Chi Secondary School</p>
           
           <div className="mt-8 grid grid-cols-1 gap-4 max-w-sm mx-auto">
             <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-5 py-4 text-left">
@@ -48,7 +48,7 @@ export default function LoginPage() {
           transition={{ delay: 1 }}
           className="absolute bottom-8 text-xs text-white"
         >
-          © 2026 基智若愚 · 版權所有
+          © 2026 基智行政平台 · 版權所有
         </motion.p>
       </div>
 
@@ -62,7 +62,7 @@ export default function LoginPage() {
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
              <Image src="/logo.png" alt="Logo" width={64} height={64} priority className="mx-auto mb-4" />
-             <h2 className="text-2xl font-bold text-gray-900">基智若愚 ICHI</h2>
+             <h2 className="text-2xl font-bold text-gray-900">基智行政平台</h2>
           </div>
 
           <div className="bg-white p-8 rounded-3xl shadow-xl lg:shadow-none border lg:border-none border-gray-100">

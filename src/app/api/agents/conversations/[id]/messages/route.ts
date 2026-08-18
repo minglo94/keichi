@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { isTeacherOrAdmin } from "@/lib/roles"
 import { prisma } from "@/lib/prisma"
+import { updateConversationMemory } from "@/lib/agent-memory"
 import { z } from "zod"
 
 const appendSchema = z.object({
@@ -36,6 +37,15 @@ export async function POST(
       data:  { updatedAt: new Date() },
     }),
   ])
+
+  // Fire-and-forget: refresh the conversation's rolling memory summary once
+  // it has a full exchange (assistant reply = a turn just completed). Never
+  // await — this must not add latency to message persistence.
+  if (data.role === "assistant") {
+    updateConversationMemory(params.id, session.user.id).catch((err) =>
+      console.error("[conversations/messages] memory update failed:", err)
+    )
+  }
 
   return NextResponse.json(message, { status: 201 })
 }

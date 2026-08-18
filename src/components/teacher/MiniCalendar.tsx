@@ -8,7 +8,7 @@ type CalendarEventMin = {
   id: string
   startDate: string
   title: string
-  committee: "ADMIN" | "DISCIPLINE" | "IT" | "CURRICULUM" | "ECA" | null
+  committee: "ADMIN" | "DISCIPLINE" | "IT" | "CURRICULUM" | "ECA" | "SCHOOL" | null
 }
 
 const COMMITTEE_COLORS: Record<string, string> = {
@@ -17,6 +17,7 @@ const COMMITTEE_COLORS: Record<string, string> = {
   IT:         "var(--color-it)",
   CURRICULUM: "var(--color-curriculum)",
   ECA:        "var(--color-eca)",
+  SCHOOL:     "var(--color-school)",
 }
 
 const COMMITTEE_LABELS: Record<string, string> = {
@@ -25,6 +26,7 @@ const COMMITTEE_LABELS: Record<string, string> = {
   IT:         "電腦",
   CURRICULUM: "課程",
   ECA:        "課外活動",
+  SCHOOL:     "學校活動及假期",
 }
 
 const WEEK_DAYS = ["日", "一", "二", "三", "四", "五", "六"]

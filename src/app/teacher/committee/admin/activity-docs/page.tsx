@@ -602,13 +602,13 @@ export default function ActivityDocsPage() {
                 const weekday = s.date ? WEEKDAYS[new Date(s.date + "T00:00:00").getDay()] : "—"
                 return (
                   <div key={s.id} className="flex items-center gap-2 bg-gray-50 border rounded-lg px-3 py-2">
-                    <input type="date" className={`${inputCls} flex-shrink-0 w-40`} value={s.date}
+                    <input type="date" className="flex-shrink-0 px-2 py-1.5 text-sm rounded-md border outline-none focus:ring-2 focus:ring-[var(--color-admin)] focus:border-transparent transition-shadow" style={{ width: 500 }} value={s.date}
                       onChange={e => updateSession(s.id, "date", e.target.value)} />
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#e8eef8", color: adminColor, minWidth: 52, textAlign:"center" }}>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: "#e8eef8", color: adminColor, minWidth: 52, textAlign:"center" }}>
                       {weekday}
                     </span>
                     {sessions.length > 1 && (
-                      <button onClick={() => removeSession(s.id)} className="ml-auto w-7 h-7 flex items-center justify-center bg-red-500 text-white rounded-md hover:bg-red-600">
+                      <button onClick={() => removeSession(s.id)} className="ml-auto flex-shrink-0 w-7 h-7 flex items-center justify-center bg-red-500 text-white rounded-md hover:bg-red-600">
                         <X className="w-3.5 h-3.5" />
                       </button>
                     )}
@@ -867,7 +867,7 @@ export default function ActivityDocsPage() {
       )}
 
       {/* Sticky action bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 px-6 py-3 flex items-center gap-4 z-40 shadow-lg"
+      <div className=" bottom-0 left-0 right-0 bg-white border-t-2 px-6 py-3 flex items-center gap-4 z-40 shadow-lg"
         style={{ borderColor: "#c8a830" }}>
         <button type="button" onClick={handleGenerate} disabled={generating}
           className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-60"

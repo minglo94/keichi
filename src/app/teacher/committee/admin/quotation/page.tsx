@@ -41,6 +41,7 @@ export default function QuotationPage() {
   // ── Header ──
   const [quotationDate, setQuotationDate] = useState(today())
   const [quoteMethod, setQuoteMethod] = useState<"phone" | "fax" | "mail" | "other">("phone")
+  const [quoteMethodOther, setQuoteMethodOther] = useState("")
   const [higherPriceReason, setHigherPriceReason] = useState("")
   const [fewerSuppliersReason, setFewerSuppliersReason] = useState("")
 
@@ -71,6 +72,9 @@ export default function QuotationPage() {
   const [deptHeadName, setDeptHeadName] = useState("")
   const [deptHeadRank, setDeptHeadRank] = useState("")
   const [deptHeadDate, setDeptHeadDate] = useState(today())
+  const [approverName, setApproverName] = useState("")
+  const [approverRank, setApproverRank] = useState("")
+  const [approverDate, setApproverDate] = useState(today())
 
   // ── Preview ──
   const [showPreview, setShowPreview] = useState(false)
@@ -202,6 +206,7 @@ export default function QuotationPage() {
     const payload = {
       quotationDate,
       quoteMethod,
+      quoteMethodOther,
       quotationName,
       items: realItems.map((it) => ({ name: it.name, qty: it.qty })),
       supplierA: {
@@ -238,6 +243,9 @@ export default function QuotationPage() {
       deptHeadName,
       deptHeadRank,
       deptHeadDate,
+      approverName,
+      approverRank,
+      approverDate,
     }
 
     try {
@@ -270,7 +278,7 @@ export default function QuotationPage() {
 
   function resetForm() {
     if (!confirm("確定要清空所有欄位？")) return
-    setQuotationDate(today()); setQuoteMethod("phone"); setHigherPriceReason(""); setFewerSuppliersReason("")
+    setQuotationDate(today()); setQuoteMethod("phone"); setQuoteMethodOther(""); setHigherPriceReason(""); setFewerSuppliersReason("")
     setQuotationName(""); setItems([{ name: "", qty: "" }])
     setSupA({ name: "", tel: "", total: "" }); setSupB({ name: "", tel: "", total: "" })
     setSupAPrices([""]); setSupBPrices([""]); setRecommended("A"); setPriceType("lower")
@@ -278,6 +286,7 @@ export default function QuotationPage() {
     setDeliveryDate(""); setFundingSource("")
     setRequestorName(""); setRequestorRank(""); setRequestorDate(today())
     setDeptHeadName(""); setDeptHeadRank(""); setDeptHeadDate(today())
+    setApproverName(""); setApproverRank(""); setApproverDate(today())
     setOcrStatus("idle"); setOcrMessage(""); setGenError("")
   }
 
@@ -299,12 +308,10 @@ export default function QuotationPage() {
   const PREVIEW_W = 496 // px — preview panel width incl gap
 
   return (
-    <div className="p-6 pb-28 overflow-x-hidden">
-    {/* Outer: relative so preview can be absolute; fills viewport */}
-    <div className="relative">
+    <div className="p-6 pb-28">
     {/* ── Form col: always centred by mx-auto, shifts left via translateX ── */}
     <div
-      className="max-w-3xl mx-auto transition-transform duration-300 ease-in-out"
+      className="max-w-3xl mx-auto transition-transform duration-300 ease-in-out relative"
       style={{ transform: showPreview ? `translateX(-${PREVIEW_W / 2}px)` : "translateX(0)" }}
     >
       {/* Header */}
@@ -437,6 +444,12 @@ export default function QuotationPage() {
             </div>
           </div>
         </div>
+        {quoteMethod === "other" && (
+          <div>
+            <label className={labelCls} style={labelStyle}>其他報價方式說明</label>
+            <input type="text" value={quoteMethodOther} onChange={(e) => setQuoteMethodOther(e.target.value)} placeholder="請說明其他報價方式" className={inputCls} style={inputStyle} />
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelCls} style={labelStyle}>採納較高報價原因（如適用）</label>
@@ -648,6 +661,14 @@ export default function QuotationPage() {
             inputCls={inputCls} inputStyle={inputStyle} labelCls={labelCls} labelStyle={labelStyle}
           />
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <SignBlock
+            title="批核人（校長/副校長）"
+            name={approverName} rank={approverRank} date={approverDate}
+            onName={setApproverName} onRank={setApproverRank} onDate={setApproverDate}
+            inputCls={inputCls} inputStyle={inputStyle} labelCls={labelCls} labelStyle={labelStyle}
+          />
+        </div>
         <datalist id="rank-list">
           {RANK_OPTIONS.map((r) => <option key={r} value={r} />)}
         </datalist>
@@ -655,7 +676,7 @@ export default function QuotationPage() {
 
       {/* Sticky generate bar */}
       <div
-        className="fixed bottom-0 left-0 right-0 md:left-[220px] p-4 flex flex-wrap items-center gap-3 z-30"
+        className="bottom-0 left-0 right-0 md:left-[220px] p-4 flex flex-wrap items-center gap-3 z-30"
         style={{ background: "var(--color-surface)", borderTop: "1px solid var(--color-border)", boxShadow: "0 -2px 8px rgba(0,0,0,0.06)" }}
       >
         <button
@@ -680,12 +701,14 @@ export default function QuotationPage() {
 
     {/* ── Right: Word preview — slides in from right via translateX ── */}
     <div
-      className="hidden xl:block absolute top-0 right-0 w-[480px] sticky-preview transition-transform duration-300 ease-in-out"
+      className="hidden xl:block fixed top-24 right-6 w-[480px] transition-transform duration-300 ease-in-out"
       style={{
-        transform: showPreview ? "translateX(0)" : "translateX(calc(100% + 24px))",
+        transform: showPreview ? "translateX(0)" : "translateX(calc(100% + 48px))",
         opacity: showPreview ? 1 : 0,
         transition: "transform 300ms ease-in-out, opacity 300ms ease-in-out",
         pointerEvents: showPreview ? "auto" : "none",
+        maxHeight: "calc(100vh - 120px)",
+        zIndex: 20,
       }}
     >
       <p className="text-caption mb-2 flex items-center gap-1.5" style={{ color: "var(--color-ink-400)" }}>
@@ -814,12 +837,14 @@ export default function QuotationPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
           <thead>
             <tr>
-              <DocCell th w="50%">索取報價人</DocCell>
-              <DocCell th w="50%">科組負責人</DocCell>
+              <DocCell th w="33.3%">索取報價人</DocCell>
+              <DocCell th w="33.3%">科組負責人</DocCell>
+              <DocCell th w="33.3%">批核人</DocCell>
             </tr>
           </thead>
           <tbody>
             <tr>
+              <DocCell style={{ height: 28 }}> </DocCell>
               <DocCell style={{ height: 28 }}> </DocCell>
               <DocCell style={{ height: 28 }}> </DocCell>
             </tr>
@@ -832,17 +857,20 @@ export default function QuotationPage() {
                 {deptHeadName || "（姓名）"}
                 {deptHeadRank ? `  ${deptHeadRank}` : ""}
               </DocCell>
+              <DocCell>
+                {approverName || "（姓名）"}
+                {approverRank ? `  ${approverRank}` : ""}
+              </DocCell>
             </tr>
             <tr>
               <DocCell label>日期：{requestorDate || " "}</DocCell>
               <DocCell label>日期：{deptHeadDate || " "}</DocCell>
+              <DocCell label>日期：{approverDate || " "}</DocCell>
             </tr>
           </tbody>
         </table>
       </div>
     </div>{/* end preview col */}
-
-    </div>{/* end two-col flex */}
     </div>
   )
 }

@@ -50,6 +50,11 @@
   --color-eca-soft:   oklch(95% 0.025 300);
   --color-eca-border: oklch(82% 0.05 300);
 
+  /* Committee — 校曆及假期 (School events & holidays): blue */
+  --color-school:        oklch(52% 0.11 250);
+  --color-school-soft:   oklch(95% 0.025 250);
+  --color-school-border: oklch(82% 0.05 250);
+
   /* Sidebar */
   --sidebar-width: 220px;
 }

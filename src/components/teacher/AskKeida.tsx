@@ -4,6 +4,7 @@ import { useRef, useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import { KEIDA_GREETING, isGreeting } from "@/lib/keida-greeting"
+import { KEIDA_SUGGESTIONS as SUGGESTIONS } from "@/lib/keida-suggestions"
 import type { LLMMessage } from "@/lib/llm"
 import { AgentMarkdown } from "@/components/teacher/AgentMarkdown"
 import { DraftActionCard, type Draft } from "@/components/teacher/DraftActionCard"
@@ -71,13 +72,6 @@ type ConvoSummary = {
 }
 
 type View = "chat" | "history"
-
-const SUGGESTIONS = [
-  "幫我出一份數學測驗",
-  "安排代課通告",
-  "夾 IT 組會議時間",
-  "製作課程單元計劃",
-]
 
 // ─── Component ────────────────────────────────────────────────────────────────
 

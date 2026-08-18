@@ -8,7 +8,7 @@ import PizZip from "pizzip"
 import Docxtemplater from "docxtemplater"
 
 // Wingdings 2 checkbox glyphs (must match template's checkbox run font).
-const CHECKED = "" // ■ checked
+const CHECKED = "" // ■ checked
 const UNCHECKED = "" // □ empty
 const box = (on: boolean) => (on ? CHECKED : UNCHECKED)
 
@@ -28,6 +28,7 @@ const itemSchema = z.object({
 const generateSchema = z.object({
   quotationDate:        z.string().max(20),
   quoteMethod:          z.enum(["phone", "fax", "mail", "other"]),
+  quoteMethodOther:     z.string().max(200).default(""),
   quotationName:        z.string().max(200).default(""),
   items:                z.array(itemSchema).max(3).default([]),
   supplierA:            supplierSchema,
@@ -48,6 +49,9 @@ const generateSchema = z.object({
   deptHeadName:         z.string().max(100).default(""),
   deptHeadRank:         z.string().max(100).default(""),
   deptHeadDate:         z.string().max(20).default(""),
+  approverName:         z.string().max(100).default(""),
+  approverRank:         z.string().max(100).default(""),
+  approverDate:         z.string().max(20).default(""),
 })
 
 const TEMPLATE_PATH = path.join(process.cwd(), "public", "templates", "quotation.docx")
@@ -60,6 +64,32 @@ function pad3<T>(arr: T[]): (T | "")[] {
 function fmtNum(n: number | undefined | null): string {
   if (n === undefined || n === null || Number.isNaN(n)) return ""
   return Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// Convert YYYY-MM-DD to traditional Chinese date format
+function fmtDate(dateStr: string): string {
+  if (!dateStr) return "___________"
+
+  try {
+    // Try parsing YYYY-MM-DD or YYYY/MM/DD
+    const formats = [
+      /^(\d{4})-(\d{1,2})-(\d{1,2})$/,  // YYYY-MM-DD
+      /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/ // YYYY/MM/DD
+    ]
+
+    for (const fmt of formats) {
+      const match = dateStr.match(fmt)
+      if (match) {
+        const [, year, month, day] = match
+        return `  ${year} 年    ${parseInt(month)} 月  ${parseInt(day)}   日`
+      }
+    }
+
+    // If parsing fails, return as-is
+    return dateStr
+  } catch {
+    return dateStr
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -80,11 +110,12 @@ export async function POST(req: NextRequest) {
 
   // Map form data → docxtemplater keys (all keys defaulted so render never throws on a missing field).
   const data = {
-    quotationDate: d.quotationDate,
+    quotationDate: fmtDate(d.quotationDate),
     methodPhoneBox: box(d.quoteMethod === "phone"),
     methodFaxBox:   box(d.quoteMethod === "fax"),
     methodMailBox:  box(d.quoteMethod === "mail"),
     methodOtherBox: box(d.quoteMethod === "other"),
+    quoteMethodOther: d.quoteMethod === "other" ? d.quoteMethodOther : "",
     recommendedSupplier: d.recommended === "A" ? d.supplierA.name : d.supplierB.name,
     priceLowerBox:  box(d.useLowerPrice),
     priceHigherBox: box(!d.useLowerPrice),
@@ -100,10 +131,13 @@ export async function POST(req: NextRequest) {
     fundingSource: d.fundingSource,
     requestorName: d.requestorName,
     requestorRank: d.requestorRank,
-    requestorDate: d.requestorDate,
+    requestorDate: fmtDate(d.requestorDate),
     deptHeadName:  d.deptHeadName,
     deptHeadRank:  d.deptHeadRank,
-    deptHeadDate:  d.deptHeadDate,
+    deptHeadDate:  fmtDate(d.deptHeadDate),
+    approverName:  d.approverName,
+    approverRank:  d.approverRank,
+    approverDate:  fmtDate(d.approverDate),
     quotationName: d.quotationName,
     item1Name: names[0], item2Name: names[1], item3Name: names[2],
     item1Qty:  qtys[0],  item2Qty:  qtys[1],  item3Qty:  qtys[2],

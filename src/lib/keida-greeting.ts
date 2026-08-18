@@ -1,7 +1,7 @@
 // Shared Keida greeting — safe to import from both server and client
 // (no SDK / server-only dependencies here).
 
-export const KEIDA_GREETING = `你好！我是 Keida，基智中學的 AI 校務助理。
+export const KEIDA_GREETING = `你好！我是 Keida，中華基督教會基智中學的 AI 校務助理。
 
 有什麼可以幫到你？你可以詢問我關於：
 - 學校公告

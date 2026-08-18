@@ -43,10 +43,10 @@ export function StudentSidebar({ user }: { user: User }) {
       style={{ background: "var(--color-surface)", borderRight: "1px solid var(--color-border)" }}
     >
       <div className="px-5 pt-6 pb-4 flex items-center gap-2.5">
-        <Image src="/logo-placeholder.svg" alt="基智若愚 Logo" width={32} height={32} priority />
+        <Image src="/logo-placeholder.svg" alt="基智行政平台 Logo" width={32} height={32} priority />
         <div className="flex items-end gap-1.5">
           <span className="text-xl font-semibold tracking-tight" style={{ color: "var(--color-ink-900)" }}>
-            基智若愚
+            基智行政平台
           </span>
         </div>
       </div>
@@ -122,8 +122,8 @@ export function StudentSidebar({ user }: { user: User }) {
             <line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
-        <Image src="/logo.png" alt="基智若愚 Logo" width={24} height={24} />
-        <span className="text-body font-semibold" style={{ color: "var(--color-ink-900)" }}>基智若愚</span>
+        <Image src="/logo.png" alt="基智行政平台 Logo" width={24} height={24} />
+        <span className="text-body font-semibold" style={{ color: "var(--color-ink-900)" }}>基智行政平台</span>
       </div>
 
       {/* Mobile drawer */}

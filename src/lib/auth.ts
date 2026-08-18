@@ -8,11 +8,13 @@ import bcrypt from "bcryptjs"
 import type { Role } from "@prisma/client"
 import type { Adapter } from "next-auth/adapters"
 
-// Bootstrap admins: these emails are always granted ADMIN on login (handy for
-// Google Workspace SSO where accounts are created on first sign-in). Add more
-// via the ADMIN_EMAILS env var (comma-separated); the default is always kept.
+// Bootstrap admins: emails listed in the ADMIN_EMAILS env var (comma-separated)
+// are always granted ADMIN on login — handy for Google Workspace SSO where
+// accounts are created on first sign-in. Kept out of source (public repo);
+// configure per-environment (e.g. Zeabur env vars).
 const ADMIN_EMAILS = new Set(
-  ["test2020@ga.keichi.edu.hk", ...(process.env.ADMIN_EMAILS ?? "").split(",")]
+  (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean),
 )

@@ -7,7 +7,7 @@
  *   3. Clears googleEventId + syncedAt on all of the user's CalendarEvents
  *      (so they can be re-synced if user reconnects)
  *
- * Does NOT delete events from Google Calendar — the "AI 大智若愚" calendar
+ * Does NOT delete events from Google Calendar — the "基智行政平台" calendar
  * and its events remain in the user's Google account.
  */
 

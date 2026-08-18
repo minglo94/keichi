@@ -18,7 +18,7 @@ const notoSansTC = Noto_Sans_TC({
 })
 
 export const metadata: Metadata = {
-  title: "基智若愚 ICHI",
+  title: "基智行政平台",
   description: "教師行政管理平台",
 }
 

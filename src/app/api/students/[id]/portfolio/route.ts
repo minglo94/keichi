@@ -14,11 +14,16 @@ export async function GET(
 
   const studentId = params.id
 
-  const [student, submissions, activities, points, behavior] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: studentId },
-      select: { id: true, name: true, email: true, image: true }
-    }),
+  const student = await prisma.user.findUnique({
+    where: { id: studentId },
+    select: { id: true, name: true, email: true, image: true }
+  })
+
+  if (!student) {
+    return NextResponse.json({ error: "Student not found" }, { status: 404 })
+  }
+
+  const [submissions, activities, points, behavior] = await Promise.all([
     prisma.missionSubmission.findMany({
       where: { studentId },
       include: { mission: true },
@@ -34,15 +39,18 @@ export async function GET(
       include: { class: true },
       orderBy: { createdAt: "desc" }
     }),
-    prisma.behaviorRecord.findMany({
-      where: { studentName: { contains: studentId } }, // This might be tricky if studentName is a string, let's check schema
-      orderBy: { date: "desc" }
-    })
+    // BehaviorRecord has no studentId FK — it's denormalized to studentName/className
+    // (see schema.prisma). Matching on the student's actual name is the correct filter;
+    // the previous `studentName: { contains: studentId } }` matched a cuid against a name
+    // field and so never found real records. Name collisions across students with the
+    // same name are a known limitation of the underlying schema, not this query.
+    student.name
+      ? prisma.behaviorRecord.findMany({
+          where: { studentName: student.name },
+          orderBy: { date: "desc" }
+        })
+      : Promise.resolve([])
   ])
-
-  if (!student) {
-    return NextResponse.json({ error: "Student not found" }, { status: 404 })
-  }
 
   // Calculate some stats
   const totalPoints = points.reduce((acc, p) => acc + p.amount, 0)

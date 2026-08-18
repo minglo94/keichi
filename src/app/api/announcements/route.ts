@@ -6,14 +6,16 @@ import { notifyMany } from "@/lib/notify"
 import { z } from "zod"
 
 const createSchema = z.object({
-  title:     z.string().min(1).max(200),
-  body:      z.string().min(1).max(10000),
-  committee: z.enum(["ADMIN", "DISCIPLINE", "IT", "CURRICULUM", "ECA"]).optional(),
-  target:    z.enum(["ALL", "ADMIN", "DISCIPLINE", "IT", "CURRICULUM", "ECA", "CLASS"]).default("ALL"),
-  priority:  z.enum(["NORMAL", "IMPORTANT", "URGENT"]).default("NORMAL"),
-  classId:   z.string().optional(),
-  pinned:    z.boolean().default(false),
-  publishAt: z.string().optional().transform(v => v ? new Date(v) : undefined),
+  title:      z.string().min(1).max(200),
+  body:       z.string().min(1).max(10000),
+  committee:  z.enum(["ADMIN", "DISCIPLINE", "IT", "CURRICULUM", "ECA"]).optional(),
+  target:     z.enum(["ALL", "ADMIN", "DISCIPLINE", "IT", "CURRICULUM", "ECA", "CLASS"]).default("ALL"),
+  priority:   z.enum(["NORMAL", "IMPORTANT", "URGENT"]).default("NORMAL"),
+  status:     z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("PUBLISHED"),
+  categoryId: z.string().optional(),
+  classId:    z.string().optional(),
+  pinned:     z.boolean().default(false),
+  publishAt:  z.string().optional().transform(v => v ? new Date(v) : undefined),
 })
 
 export async function GET(req: NextRequest) {
@@ -21,12 +23,15 @@ export async function GET(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
-  const target = searchParams.get("target")
+  const target     = searchParams.get("target")
+  const categoryId = searchParams.get("categoryId")
+  const status     = searchParams.get("status")
+  const date       = searchParams.get("date")   // YYYY-MM-DD (HKT day) — used by the PA dashboard
 
   let whereClause: any = {}
 
   if (session.user.role === "STUDENT") {
-    // STUDENT：只看 ALL 或自己班、且已發佈
+    // STUDENT：只看 ALL 或自己班、已發佈狀態、且到達發佈時間
     const studentEnrollments = await prisma.classEnrollment.findMany({
       where: { studentId: session.user.id },
       select: { classId: true }
@@ -34,6 +39,7 @@ export async function GET(req: NextRequest) {
     const classIds = studentEnrollments.map(e => e.classId)
 
     whereClause = {
+      status:    "PUBLISHED",
       publishAt: { lte: new Date() },
       OR: [
         { target: "ALL" },
@@ -41,14 +47,23 @@ export async function GET(req: NextRequest) {
       ]
     }
   } else {
-    // TEACHER / ADMIN：看全部（可選 target 過濾）
-    if (target) whereClause.target = target
+    // TEACHER / ADMIN：看全部（可選 target / categoryId / status / date 過濾）
+    if (target)     whereClause.target     = target
+    if (categoryId) whereClause.categoryId = categoryId
+    if (status)     whereClause.status     = status
+    if (date) {
+      // Interpret the date param as a Hong Kong (UTC+8) calendar day.
+      const start = new Date(`${date}T00:00:00+08:00`)
+      const end   = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+      whereClause.publishAt = { gte: start, lt: end }
+    }
   }
 
   const announcements = await prisma.announcement.findMany({
     where: whereClause,
     include: {
-      author: { select: { id: true, name: true, image: true } },
+      author:   { select: { id: true, name: true, image: true } },
+      category: { select: { id: true, name: true, committee: true } },
     },
     orderBy: [
       { priority:  "desc" },
@@ -72,7 +87,8 @@ export async function POST(req: NextRequest) {
   const announcement = await prisma.announcement.create({
     data: { ...data, authorId: session.user.id },
     include: {
-      author: { select: { id: true, name: true, image: true } },
+      author:   { select: { id: true, name: true, image: true } },
+      category: { select: { id: true, name: true, committee: true } },
     },
   })
 

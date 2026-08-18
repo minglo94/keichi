@@ -5,15 +5,16 @@
 // ============================================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_UNPOOLED")  // ← 新增這一行
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DATABASE_URL_UNPOOLED") // ← 新增這一行
+  extensions = [pg_trgm, vector]
 }
-
 
 // ─────────────────────────────────────────
 // ENUMS
@@ -26,10 +27,10 @@ enum Role {
 }
 
 enum MissionType {
-  VIDEO      // YouTube 互動影片
-  FORM       // Google Forms 連結
-  AI_QUIZ    // Claude 生成多選題
-  PROMPT     // Prompt Engineering 挑戰
+  VIDEO // YouTube 互動影片
+  FORM // Google Forms 連結
+  AI_QUIZ // Claude 生成多選題
+  PROMPT // Prompt Engineering 挑戰
 }
 
 enum Difficulty {
@@ -45,17 +46,17 @@ enum MissionStatus {
 }
 
 enum SubmissionStatus {
-  PENDING   // 待老師審批
-  APPROVED  // 已批核，積點已派
-  REJECTED  // 已拒絕，附反饋
+  PENDING // 待老師審批
+  APPROVED // 已批核，積點已派
+  REJECTED // 已拒絕，附反饋
 }
 
 enum PointReason {
-  ATTENDANCE    // 出勤
-  MISSION       // 完成衝關任務
-  FLASHCARD     // 完成閃卡複習
-  TEACHER       // 老師手動發點
-  REDEEM        // 兌換獎品（負數）
+  ATTENDANCE // 出勤
+  MISSION // 完成衝關任務
+  FLASHCARD // 完成閃卡複習
+  TEACHER // 老師手動發點
+  REDEEM // 兌換獎品（負數）
 }
 
 enum CommitteeType {
@@ -64,6 +65,7 @@ enum CommitteeType {
   IT
   CURRICULUM
   ECA
+  SCHOOL // 校曆及假期 — school-wide events & holidays (calendar category)
 }
 
 enum ToolType {
@@ -159,35 +161,36 @@ model User {
   sessions Session[]
 
   // App relations
-  taughtClasses  Class[]            @relation("TeacherClasses")
-  homeroomForClasses Class[]        @relation("HomeroomTeacher")
-  enrollments    ClassEnrollment[]
-  submissions    MissionSubmission[]
-  pointsReceived PointTransaction[] @relation("ReceivedPoints")
-  pointsAwarded  PointTransaction[] @relation("AwardedPoints")
-  flashcardDecks FlashcardDeck[]
-  cardReviews    FlashcardReview[]
+  taughtClasses      Class[]             @relation("TeacherClasses")
+  homeroomForClasses Class[]             @relation("HomeroomTeacher")
+  enrollments        ClassEnrollment[]
+  submissions        MissionSubmission[]
+  pointsReceived     PointTransaction[]  @relation("ReceivedPoints")
+  pointsAwarded      PointTransaction[]  @relation("AwardedPoints")
+  flashcardDecks     FlashcardDeck[]
+  cardReviews        FlashcardReview[]
 
   // EduPortal admin features
-  todosCreated      Todo[]              @relation("TodosCreated")
-  todoAssignments   TodoAssignee[]
-  announcements     Announcement[]      @relation("AnnouncementsAuthored")
-  committeeRoles    CommitteeRole[]
-  behaviorRecords   BehaviorRecord[]    @relation("BehaviorRecords")
-  calendarEvents    CalendarEvent[]     @relation("CalendarEvents")
-  committeeTools    CommitteeTool[]     @relation("CommitteeTools")
-  activitiesCreated Activity[]          @relation("ActivitiesCreated")
-  activityAssignments ActivityAssignment[] @relation("ActivityAssignments")
-  groupMemberships    GroupMember[]
-  taughtGroups        StudentGroup[]   @relation("GroupTeacher")
+  todosCreated           Todo[]                 @relation("TodosCreated")
+  todoAssignments        TodoAssignee[]
+  announcements          Announcement[]         @relation("AnnouncementsAuthored")
+  announcementCategories AnnouncementCategory[] @relation("AnnouncementCategoriesCreated")
+  committeeRoles         CommitteeRole[]
+  behaviorRecords        BehaviorRecord[]       @relation("BehaviorRecords")
+  calendarEvents         CalendarEvent[]        @relation("CalendarEvents")
+  committeeTools         CommitteeTool[]        @relation("CommitteeTools")
+  activitiesCreated      Activity[]             @relation("ActivitiesCreated")
+  activityAssignments    ActivityAssignment[]   @relation("ActivityAssignments")
+  groupMemberships       GroupMember[]
+  taughtGroups           StudentGroup[]         @relation("GroupTeacher")
 
   // Inventory & Assets
-  assetsLent        Asset[]             @relation("UserAssets")
-  assetLogs         AssetLog[]          @relation("LoggedBy")
-  bookings          Booking[]           @relation("UserBookings")
+  assetsLent Asset[]    @relation("UserAssets")
+  assetLogs  AssetLog[] @relation("LoggedBy")
+  bookings   Booking[]  @relation("UserBookings")
 
   // Favorited tools (dashboard 常用工具)
-  toolFavorites     ToolFavorite[]
+  toolFavorites ToolFavorite[]
 
   // kcagentos agent module
   agentTasks         AgentTask[]
@@ -195,8 +198,15 @@ model User {
   agentAuditLogs     AgentAuditLog[]
   agentConversations AgentConversation[]
 
+  // Knowledge base (Phase 2b RAG)
+  knowledgeDocuments KnowledgeDocument[]
+
+  // Cross-conversation memory (Phase 2c RAG)
+  agentMemories   AgentMemory[]
+  learningProfile StudentLearningProfile?
+
   // In-app notifications
-  notifications      Notification[]
+  notifications Notification[]
 
   // Procurement requests
   procurementRequests ProcurementRequest[] @relation("ProcurementRequests")
@@ -212,10 +222,10 @@ model User {
 model Notification {
   id        String   @id @default(cuid())
   userId    String
-  type      String   // "ANNOUNCEMENT" | "DOC_APPROVAL" | "BEHAVIOR" | "GENERAL"
+  type      String // "ANNOUNCEMENT" | "DOC_APPROVAL" | "BEHAVIOR" | "GENERAL"
   title     String
   body      String?
-  link      String?  // in-app path to open when clicked
+  link      String? // in-app path to open when clicked
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
@@ -267,31 +277,31 @@ model Asset {
   type         AssetType
   status       AssetStatus @default(AVAILABLE)
   location     String?
-  assignedToId String?     // User ID if currently lent
+  assignedToId String? // User ID if currently lent
   purchaseDate DateTime?
   lastChecked  DateTime?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  assignedTo   User?       @relation("UserAssets", fields: [assignedToId], references: [id])
-  history      AssetLog[]
+  assignedTo User?      @relation("UserAssets", fields: [assignedToId], references: [id])
+  history    AssetLog[]
 
   @@index([status])
   @@index([type])
 }
 
 model AssetLog {
-  id        String      @id @default(cuid())
-  assetId   String
-  userId    String      // User who performed the action
-  action    String      // e.g., "CHECK_OUT", "CHECK_IN", "REPAIR_START"
+  id         String      @id @default(cuid())
+  assetId    String
+  userId     String // User who performed the action
+  action     String // e.g., "CHECK_OUT", "CHECK_IN", "REPAIR_START"
   fromStatus AssetStatus
   toStatus   AssetStatus
-  note      String?     @db.Text
-  createdAt DateTime    @default(now())
+  note       String?     @db.Text
+  createdAt  DateTime    @default(now())
 
-  asset     Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  user      User  @relation("LoggedBy", fields: [userId], references: [id])
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  user  User  @relation("LoggedBy", fields: [userId], references: [id])
 
   @@index([assetId])
   @@index([userId])
@@ -302,13 +312,13 @@ model AssetLog {
 // ─────────────────────────────────────────
 
 model Resource {
-  id          String    @id @default(cuid())
-  name        String    // e.g., "Computer Lab (Room 201)"
-  type        String    // e.g., "LAB", "HALL", "STEM"
-  capacity    Int?
-  bookings    Booking[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String    @id @default(cuid())
+  name      String // e.g., "Computer Lab (Room 201)"
+  type      String // e.g., "LAB", "HALL", "STEM"
+  capacity  Int?
+  bookings  Booking[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 model Booking {
@@ -321,8 +331,8 @@ model Booking {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
-  user       User     @relation("UserBookings", fields: [userId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  user     User     @relation("UserBookings", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([resourceId, startTime])
   @@index([userId])
@@ -341,14 +351,14 @@ model Booking {
 model Class {
   id                String   @id @default(cuid())
   teacherId         String
-  homeroomTeacherId String?  // 班主任（學務角色；與 teacherId「擁有權」語意不同）
+  homeroomTeacherId String? // 班主任（學務角色；與 teacherId「擁有權」語意不同）
   name              String
   classCode         String   @unique // 6-char alphanumeric
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  teacher         User              @relation("TeacherClasses", fields: [teacherId], references: [id])
-  homeroomTeacher User?             @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id])
+  teacher         User               @relation("TeacherClasses", fields: [teacherId], references: [id])
+  homeroomTeacher User?              @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id])
   enrollments     ClassEnrollment[]
   missions        Mission[]
   points          PointTransaction[]
@@ -362,7 +372,7 @@ model ClassEnrollment {
   id          String   @id @default(cuid())
   classId     String
   studentId   String
-  classNumber String?  // e.g. "15"
+  classNumber String? // e.g. "15"
   enrolledAt  DateTime @default(now())
 
   class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
@@ -382,18 +392,18 @@ model Mission {
   title        String
   description  String?       @db.Text
   type         MissionType
-  content      Json          // See MissionContent types in types/mission.ts
+  content      Json // See MissionContent types in types/mission.ts
   difficulty   Difficulty    @default(BASIC)
-  prereqId     String?       // Self-relation: prerequisite mission
+  prereqId     String? // Self-relation: prerequisite mission
   pointsReward Int           @default(100)
   status       MissionStatus @default(DRAFT)
   order        Int           @default(0) // Display order on map
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  class       Class              @relation(fields: [classId], references: [id], onDelete: Cascade)
-  prereq      Mission?           @relation("MissionPrereq", fields: [prereqId], references: [id])
-  dependents  Mission[]          @relation("MissionPrereq")
+  class       Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  prereq      Mission?            @relation("MissionPrereq", fields: [prereqId], references: [id])
+  dependents  Mission[]           @relation("MissionPrereq")
   submissions MissionSubmission[]
 
   @@index([classId])
@@ -404,9 +414,9 @@ model MissionSubmission {
   id          String           @id @default(cuid())
   missionId   String
   studentId   String
-  content     Json             // Student's answer / prompt
+  content     Json // Student's answer / prompt
   status      SubmissionStatus @default(PENDING)
-  aiScore     Int?             // 0-100, from Claude Haiku pre-evaluation
+  aiScore     Int? // 0-100, from Claude Haiku pre-evaluation
   aiFeedback  String?          @db.Text // Raw AI feedback
   feedback    String?          @db.Text // Teacher's override feedback
   submittedAt DateTime         @default(now())
@@ -428,7 +438,7 @@ model MissionSubmission {
 model FlashcardDeck {
   id        String   @id @default(cuid())
   ownerId   String
-  classId   String?  // Optional: class-wide shared deck
+  classId   String? // Optional: class-wide shared deck
   title     String
   isPublic  Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -448,7 +458,7 @@ model Flashcard {
   back      String   @db.Text
   createdAt DateTime @default(now())
 
-  deck    FlashcardDeck   @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  deck    FlashcardDeck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
   reviews FlashcardReview[]
 
   @@index([deckId])
@@ -456,16 +466,16 @@ model Flashcard {
 
 // SM-2 algorithm state per user per card
 model FlashcardReview {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   cardId       String
   userId       String
   // SM-2 fields
-  easeFactor   Float    @default(2.5)   // Multiplier, min 1.3
-  interval     Int      @default(1)     // Days until next review
-  repetitions  Int      @default(0)     // Consecutive correct answers
-  nextReviewAt DateTime @default(now()) // Scheduled review date
+  easeFactor   Float     @default(2.5) // Multiplier, min 1.3
+  interval     Int       @default(1) // Days until next review
+  repetitions  Int       @default(0) // Consecutive correct answers
+  nextReviewAt DateTime  @default(now()) // Scheduled review date
   lastReviewAt DateTime?
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime  @updatedAt
 
   card Flashcard @relation(fields: [cardId], references: [id], onDelete: Cascade)
   user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -479,17 +489,17 @@ model FlashcardReview {
 // ─────────────────────────────────────────
 
 model PointTransaction {
-  id         String      @id @default(cuid())
-  userId     String
-  classId    String
-  amount     Int         // Positive = earned, negative = redeemed
-  reason     PointReason
-  awardedBy  String?     // FK to User (teacher), null for system events
-  note       String?     // Optional message from teacher
-  createdAt  DateTime    @default(now())
+  id        String      @id @default(cuid())
+  userId    String
+  classId   String
+  amount    Int // Positive = earned, negative = redeemed
+  reason    PointReason
+  awardedBy String? // FK to User (teacher), null for system events
+  note      String? // Optional message from teacher
+  createdAt DateTime    @default(now())
 
-  user      User  @relation("ReceivedPoints", fields: [userId], references: [id], onDelete: Cascade)
-  class     Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user          User  @relation("ReceivedPoints", fields: [userId], references: [id], onDelete: Cascade)
+  class         Class @relation(fields: [classId], references: [id], onDelete: Cascade)
   awardedByUser User? @relation("AwardedPoints", fields: [awardedBy], references: [id])
 
   @@index([userId, classId])
@@ -511,12 +521,14 @@ model Todo {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  createdBy   User          @relation("TodosCreated", fields: [createdById], references: [id], onDelete: Cascade)
-  assignees   TodoAssignee[]
+  createdBy User           @relation("TodosCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  assignees TodoAssignee[]
 
   @@index([committee])
   @@index([createdById])
   @@index([status, dueDate])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([description(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 model TodoAssignee {
@@ -535,28 +547,56 @@ enum Priority {
   URGENT
 }
 
+enum AnnouncementStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 model Announcement {
-  id        String             @id @default(cuid())
-  title     String
-  body      String             @db.Text
-  committee CommitteeType?
-  target    AnnouncementTarget @default(ALL)
-  priority  Priority           @default(NORMAL)
+  id            String             @id @default(cuid())
+  title         String
+  body          String             @db.Text
+  committee     CommitteeType?
+  target        AnnouncementTarget @default(ALL)
+  priority      Priority           @default(NORMAL)
+  status        AnnouncementStatus @default(PUBLISHED)
+  categoryId    String?
   classId       String?
   googleEventId String?
   authorId      String
-  pinned    Boolean            @default(false)
-  publishAt DateTime           @default(now())
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  pinned        Boolean            @default(false)
+  publishAt     DateTime           @default(now())
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
-  author    User               @relation("AnnouncementsAuthored", fields: [authorId], references: [id], onDelete: Cascade)
-  class     Class?             @relation(fields: [classId], references: [id])
+  author   User                  @relation("AnnouncementsAuthored", fields: [authorId], references: [id], onDelete: Cascade)
+  class    Class?                @relation(fields: [classId], references: [id])
+  category AnnouncementCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([target, createdAt])
   @@index([pinned, createdAt])
   @@index([classId])
   @@index([priority])
+  @@index([status, publishAt])
+  @@index([categoryId])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([body(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+// PA-announcement (早會廣播) categories: the 5 committee-backed defaults
+// (committee set) plus user-created custom categories (committee null).
+model AnnouncementCategory {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  committee   CommitteeType?
+  createdById String?
+  createdAt   DateTime       @default(now())
+
+  createdBy     User?          @relation("AnnouncementCategoriesCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  announcements Announcement[]
+
+  @@index([committee])
 }
 
 model CommitteeRole {
@@ -566,7 +606,7 @@ model CommitteeRole {
   isChair   Boolean       @default(false)
   joinedAt  DateTime      @default(now())
 
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, committee])
   @@index([committee])
@@ -577,7 +617,7 @@ model BehaviorRecord {
   date        DateTime
   className   String
   studentName String
-  classKey    String?      // ⚠️ 形同虛設：create/update/import 會寫入 classKey(classKey(className))，但無任何查詢讀取（訓育查詢一律用 className）。保留以免 migration 問題，勿再依賴。
+  classKey    String? // ⚠️ 形同虛設：create/update/import 會寫入 classKey(classKey(className))，但無任何查詢讀取（訓育查詢一律用 className）。保留以免 migration 問題，勿再依賴。
   type        BehaviorType
   description String       @db.Text
   action      String?      @db.Text
@@ -585,21 +625,23 @@ model BehaviorRecord {
   authorId    String
   createdAt   DateTime     @default(now())
 
-  author      User         @relation("BehaviorRecords", fields: [authorId], references: [id], onDelete: Cascade)
+  author User @relation("BehaviorRecords", fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([authorId])
   @@index([resolved, date])
   @@index([className, studentName])
+  @@index([studentName(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([description(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 enum BehaviorType {
-  MERIT        // 優點
-  MISCONDUCT   // legacy 違規 (kept for existing rows)
-  DEMERIT      // 缺點
-  MINOR_FAULT  // 小過
-  MAJOR_FAULT  // 大過
-  LATE         // 遲到
-  ABSENT       // 缺席
+  MERIT // 優點
+  MISCONDUCT // legacy 違規 (kept for existing rows)
+  DEMERIT // 缺點
+  MINOR_FAULT // 小過
+  MAJOR_FAULT // 大過
+  LATE // 遲到
+  ABSENT // 缺席
 }
 
 // ─────────────────────────────────────────
@@ -643,26 +685,28 @@ model DisciplineAlertLog {
 }
 
 model CalendarEvent {
-  id             String         @id @default(cuid())
-  title          String
-  startDate      DateTime
-  endDate        DateTime?
-  allDay         Boolean        @default(true)
-  description    String?        @db.Text
-  committee      CommitteeType?
-  authorId       String
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id          String         @id @default(cuid())
+  title       String
+  startDate   DateTime
+  endDate     DateTime?
+  allDay      Boolean        @default(true)
+  description String?        @db.Text
+  committee   CommitteeType?
+  authorId    String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   // Google Calendar sync fields
-  googleEventId  String?        // Google Calendar event ID after sync
-  syncedAt       DateTime?      // Last successful sync timestamp
+  googleEventId String? // Google Calendar event ID after sync
+  syncedAt      DateTime? // Last successful sync timestamp
 
-  author         User           @relation("CalendarEvents", fields: [authorId], references: [id], onDelete: Cascade)
+  author User @relation("CalendarEvents", fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([startDate])
   @@index([committee])
   @@index([googleEventId])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([description(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 // ─────────────────────────────────────────
@@ -674,18 +718,18 @@ model CalendarEvent {
 model GoogleCalendarConnection {
   id               String    @id @default(cuid())
   userId           String    @unique
-  googleCalendarId String    // ID of the dedicated "AI 大智若愚" calendar we created
+  googleCalendarId String // ID of the dedicated "基智行政平台" calendar we created
   accessToken      String    @db.Text
   refreshToken     String    @db.Text
-  tokenExpiresAt   DateTime  // When the access_token expires
-  syncToken        String?   @db.Text  // Google incremental sync token (for webhook pulls)
-  watchChannelId   String?   @unique   // Google Watch channel ID (for push notifications)
-  watchResourceId  String?   // Google Watch resource ID (needed to stop the watch)
+  tokenExpiresAt   DateTime // When the access_token expires
+  syncToken        String?   @db.Text // Google incremental sync token (for webhook pulls)
+  watchChannelId   String?   @unique // Google Watch channel ID (for push notifications)
+  watchResourceId  String? // Google Watch resource ID (needed to stop the watch)
   watchExpiry      DateTime? // When the Watch channel expires (max 7 days from creation)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([watchChannelId])
 }
@@ -703,14 +747,14 @@ model CommitteeTool {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  createdBy   User          @relation("CommitteeTools", fields: [createdById], references: [id])
+  createdBy User @relation("CommitteeTools", fields: [createdById], references: [id])
 
   @@index([committee, order])
 }
 
 // Fixed-window rate-limit counters (survives serverless cold starts).
 model RateLimit {
-  key         String   @id            // e.g. "login:email@x.com:1.2.3.4" or "ai:userId"
+  key         String   @id // e.g. "login:email@x.com:1.2.3.4" or "ai:userId"
   count       Int      @default(0)
   windowStart DateTime @default(now())
 
@@ -731,8 +775,8 @@ model ProcurementRequest {
   id          String            @id @default(cuid())
   requesterId String
   department  String
-  items       Json              // [{ name, spec, qty, unitPrice }]
-  totalBudget Int               // HKD, whole dollars
+  items       Json // [{ name, spec, qty, unitPrice }]
+  totalBudget Int // HKD, whole dollars
   reason      String            @db.Text
   supplier    String?
   status      ProcurementStatus @default(PENDING)
@@ -752,7 +796,7 @@ model ProcurementRequest {
 model CommitteeHiddenTool {
   id        String        @id @default(cuid())
   committee CommitteeType
-  toolKey   String        // preset tool's label (stable key used in CONFIGS)
+  toolKey   String // preset tool's label (stable key used in CONFIGS)
   hiddenBy  String
   createdAt DateTime      @default(now())
 
@@ -760,11 +804,10 @@ model CommitteeHiddenTool {
   @@index([committee])
 }
 
-
 // 課外活動（星期一、二）／ 學科活動（星期三至五）—— 決定可舉辦的星期
 enum ActivityType {
-  ECA        // 課外活動
-  ACADEMIC   // 學科活動
+  ECA // 課外活動
+  ACADEMIC // 學科活動
 }
 
 model Activity {
@@ -780,11 +823,13 @@ model Activity {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
-  createdBy   User                @relation("ActivitiesCreated", fields: [createdById], references: [id])
+  createdBy   User                 @relation("ActivitiesCreated", fields: [createdById], references: [id])
   assignments ActivityAssignment[]
 
   @@index([startTime])
   @@index([createdById])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([description(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 model ActivityAssignment {
@@ -797,8 +842,8 @@ model ActivityAssignment {
   note       String?
   createdAt  DateTime         @default(now())
 
-  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
-  student    User     @relation("ActivityAssignments", fields: [studentId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  student  User     @relation("ActivityAssignments", fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([activityId, studentId])
   @@index([studentId, status])
@@ -819,7 +864,7 @@ model StudentGroup {
   name        String
   type        GroupType
   description String?       @db.Text
-  teacherId   String?       // 負責老師
+  teacherId   String? // 負責老師
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   members     GroupMember[]
@@ -829,10 +874,10 @@ model StudentGroup {
 }
 
 model GroupMember {
-  id       String       @id @default(cuid())
+  id       String   @id @default(cuid())
   groupId  String
   userId   String
-  joinedAt DateTime     @default(now())
+  joinedAt DateTime @default(now())
 
   group StudentGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -904,6 +949,56 @@ model AgentDocument {
 
   @@index([userId, createdAt])
   @@index([approvalStatus])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([content(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+// ─────────────────────────────────────────
+// KNOWLEDGE BASE — RAG corpus for quiz generation + agent retrieval
+// (Phase 2b). Embeddings are written/read via raw SQL ($executeRaw /
+// $queryRaw) since Prisma has no native vector type — `embedding` is
+// declared Unsupported so `prisma generate` skips it in the typed client.
+// No vector index (HNSW/IVFFlat) is declared here — school-scale corpora
+// don't need one for correctness, only for scale; add one manually via
+// `CREATE INDEX ... USING hnsw (embedding vector_cosine_ops)` once this
+// has been verified against a real database and the corpus size warrants it.
+// ─────────────────────────────────────────
+
+enum KnowledgeSourceType {
+  AGENT_DOCUMENT // auto-indexed from AgentDocument on creation
+  UPLOAD // teacher-uploaded material
+  SOP // school SOP / reference notes
+}
+
+model KnowledgeDocument {
+  id            String              @id @default(cuid())
+  title         String
+  sourceType    KnowledgeSourceType
+  sourceId      String? // e.g. AgentDocument.id when sourceType = AGENT_DOCUMENT
+  ownerId       String
+  isStudentData Boolean             @default(false) // true → embeddings MUST use the local provider (私隱條例)
+  createdAt     DateTime            @default(now())
+
+  owner  User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  chunks KnowledgeChunk[]
+
+  @@index([ownerId, createdAt])
+  @@index([sourceType, sourceId])
+}
+
+model KnowledgeChunk {
+  id         String                       @id @default(cuid())
+  documentId String
+  chunkIndex Int
+  content    String                       @db.Text
+  tokenCount Int
+  embedding  Unsupported("vector(1024)")?
+  createdAt  DateTime                     @default(now())
+
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@index([content(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 // Timetable rows uploaded by admins (one row per teacher/day/period/term).
@@ -956,7 +1051,8 @@ model AgentConversation {
   updatedAt DateTime       @updatedAt
   messages  AgentMessage[]
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memory AgentMemory?
 
   @@index([userId, updatedAt])
 }
@@ -965,14 +1061,55 @@ model AgentConversation {
 model AgentMessage {
   id             String   @id @default(cuid())
   conversationId String
-  role           String   // "user" | "assistant"
+  role           String // "user" | "assistant"
   content        String   @db.Text
-  agentId        String?  // which specialist replied (A01-A06)
+  agentId        String? // which specialist replied (A01-A06)
   createdAt      DateTime @default(now())
 
   conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+}
+
+// ─────────────────────────────────────────
+// CROSS-CONVERSATION MEMORY (Phase 2c)
+// One rolling summary per conversation, updated whenever a new assistant
+// message is appended (see /api/agents/conversations/[id]/messages).
+// Recent summaries across a teacher's OTHER conversations get injected into
+// a new conversation's system prompt so Keida "remembers" past requests.
+// ─────────────────────────────────────────
+model AgentMemory {
+  id             String   @id @default(cuid())
+  userId         String
+  conversationId String   @unique
+  summary        String   @db.Text
+  updatedAt      DateTime @updatedAt
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
+}
+
+// ─────────────────────────────────────────
+// STUDENT LEARNING PROFILE (Phase 2c)
+// Rebuilt by POST /api/cron/build-student-profiles (external scheduler
+// hits this — no in-process job runner exists in this codebase). Computed
+// deterministically from aiScore/easeFactor/points, NOT via an LLM call,
+// so it's cheap to rebuild often and has no hallucination risk. Injected
+// into evaluatePrompt's grading context and available to Donna via the
+// get_student_profile tool.
+// ─────────────────────────────────────────
+model StudentLearningProfile {
+  id           String   @id @default(cuid())
+  studentId    String   @unique
+  summary      String   @db.Text
+  averageScore Float?
+  weakTopics   String[] // Mission/deck titles where performance trended low
+  strongTopics String[] // Mission/deck titles where performance trended high
+  updatedAt    DateTime @updatedAt
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 // Substitution requests created by andy agent.

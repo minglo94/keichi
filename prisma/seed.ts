@@ -89,6 +89,22 @@ async function main() {
     skipDuplicates: true,
   })
 
+  // PA-announcement (早會廣播) committee-backed categories
+  const COMMITTEE_CATEGORIES = [
+    { name: "行政",     committee: "ADMIN"      },
+    { name: "訓育",     committee: "DISCIPLINE" },
+    { name: "資訊科技", committee: "IT"         },
+    { name: "課程發展", committee: "CURRICULUM" },
+    { name: "課外活動", committee: "ECA"        },
+  ] as const
+  for (const c of COMMITTEE_CATEGORIES) {
+    await prisma.announcementCategory.upsert({
+      where:  { name: c.name },
+      update: { committee: c.committee },
+      create: { name: c.name, committee: c.committee },
+    })
+  }
+
   // 「活動文件」與「Quotation」已遷移為站內預設工具，移除舊的嵌入式 (EMBED) DB row。
   // 註：「Quotation」僅存在執行期資料庫（不在程式碼中），此處一併清理。
   await prisma.committeeTool.deleteMany({
@@ -207,7 +223,7 @@ async function main() {
       docType:   "代課通告",
       name:      "內部代課通告",
       isDefault: true,
-      content: `基智中學
+      content: `中華基督教會基智中學
                                 {{date}}
 代課安排通告
 
@@ -231,7 +247,7 @@ async function main() {
       docType:   "家長通告",
       name:      "標準家長通告",
       isDefault: true,
-      content: `基督教香港崇真會基智中學
+      content: `中華基督教會基智中學
                                 {{date}}
 {{noticeTitle}}
 

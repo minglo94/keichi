@@ -9,7 +9,7 @@ const GoogleCalendarSettings = dynamic(
   { ssr: false, loading: () => null }
 )
 
-type CommitteeType = "ADMIN" | "DISCIPLINE" | "IT" | "CURRICULUM" | "ECA"
+type CommitteeType = "ADMIN" | "DISCIPLINE" | "IT" | "CURRICULUM" | "ECA" | "SCHOOL"
 
 type CalendarEvent = {
   id:          string
@@ -29,6 +29,7 @@ const COMMITTEE_COLORS: Record<CommitteeType, string> = {
   IT:         "var(--color-it)",
   CURRICULUM: "var(--color-curriculum)",
   ECA:        "var(--color-eca)",
+  SCHOOL:     "var(--color-school)",
 }
 
 const COMMITTEE_LABELS: Record<CommitteeType, string> = {
@@ -37,6 +38,7 @@ const COMMITTEE_LABELS: Record<CommitteeType, string> = {
   IT:         "資訊科技",
   CURRICULUM: "課程發展",
   ECA:        "課外活動",
+  SCHOOL:     "學校活動及假期",
 }
 
 const DAYS = ["日", "一", "二", "三", "四", "五", "六"]
@@ -323,6 +325,7 @@ export default function CalendarPage() {
               <option value="IT">資訊科技</option>
               <option value="CURRICULUM">課程發展</option>
               <option value="ECA">課外活動</option>
+              <option value="SCHOOL">學校活動及假期</option>
             </select>
             <button
               onClick={() => icsInputRef.current?.click()}
@@ -620,6 +623,7 @@ export default function CalendarPage() {
                 <option value="IT">資訊科技</option>
                 <option value="CURRICULUM">課程發展</option>
                 <option value="ECA">課外活動</option>
+                <option value="SCHOOL">學校活動及假期</option>
               </select>
             </div>
 

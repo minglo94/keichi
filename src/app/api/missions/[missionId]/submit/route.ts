@@ -46,7 +46,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const content = mission.content as PromptMissionContent
     const submission = body.content as PromptSubmissionContent
     try {
-      const evaluation = await evaluatePrompt(submission.promptText, content)
+      const profile = await prisma.studentLearningProfile.findUnique({
+        where: { studentId: session.user.id },
+        select: { summary: true },
+      }).catch(() => null)
+      const evaluation = await evaluatePrompt(submission.promptText, content, profile?.summary)
       if (!evaluation.safe) {
         return NextResponse.json({ error: "Content flagged", reason: evaluation.reason }, { status: 422 })
       }

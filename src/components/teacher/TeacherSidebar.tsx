@@ -65,14 +65,14 @@ export function TeacherSidebar({ user }: { user: User }) {
       <div className="px-5 pt-6 pb-4 flex items-center gap-2.5">
         <Image
           src="/logo.png"
-          alt="基智若愚 Logo"
+          alt="基智行政平台 Logo"
           width={32}
           height={32}
           priority
         />
         <div className="flex items-end gap-1.5">
           <span className="text-xl font-semibold tracking-tight" style={{ color: "var(--color-ink-900)" }}>
-            基智若愚
+            基智行政平台
           </span>
         </div>
       </div>
@@ -203,12 +203,12 @@ export function TeacherSidebar({ user }: { user: User }) {
         </button>
         <Image
           src="/logo-placeholder.svg"
-          alt="基智若愚 Logo"
+          alt="基智行政平台 Logo"
           width={24}
           height={24}
         />
         <span className="font-semibold text-base" style={{ color: "var(--color-ink-900)" }}>
-          基智若愚
+          基智行政平台
         </span>
       </div>
 

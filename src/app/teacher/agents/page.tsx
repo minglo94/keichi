@@ -5,6 +5,7 @@ import Link from "next/link"
 import type { LLMMessage } from "@/lib/llm"
 import { AgentMarkdown } from "@/components/teacher/AgentMarkdown"
 import { DraftActionCard, type Draft } from "@/components/teacher/DraftActionCard"
+import { KEIDA_SUGGESTIONS } from "@/lib/keida-suggestions"
 
 // Strip agent metadata markers from text shown to the user. Markers can
 // appear mid-stream (e.g. [NEED_TOOL:...] before a tool result and more
@@ -224,12 +225,7 @@ export default function AgentsPage() {
           <div className="card p-6 text-center space-y-3">
             <p className="text-h3" style={{ color: "var(--color-ink-700)" }}>你好！有什麼可以幫到你？</p>
             <div className="flex flex-wrap gap-2 justify-center pt-2">
-              {[
-                "幫我出一份數學測驗",
-                "安排代課通告",
-                "夾 IT 組會議時間",
-                "製作課程單元計劃",
-              ].map((s) => (
+              {KEIDA_SUGGESTIONS.map((s) => (
                 <button key={s} onClick={() => { setInput(s); inputRef.current?.focus() }}
                   className="text-caption px-3 py-1.5 rounded-pill"
                   style={{ background: "var(--color-surface-2)", color: "var(--color-ink-600)" }}>

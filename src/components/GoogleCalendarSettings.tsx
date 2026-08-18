@@ -270,7 +270,7 @@ export default function GoogleCalendarSettings() {
             <ul className="space-y-1 ml-3">
               <li>• 本站新增 / 修改 / 刪除的行事曆活動自動同步至 Google Calendar</li>
               <li>• 在 Google Calendar 修改後自動反映至本站（雙向同步）</li>
-              <li>• 在「AI 大智若愚」專用日曆中集中管理學校活動</li>
+              <li>• 在「基智行政平台」專用日曆中集中管理學校活動</li>
               <li>• 支援以 Gmail 登入 或 獨立授權 Google 帳號</li>
             </ul>
           </div>

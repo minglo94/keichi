@@ -12,7 +12,7 @@ const createSchema = z.object({
   endDate:     z.string().optional(),
   allDay:      z.boolean().default(true),
   description: z.string().optional(),
-  committee:   z.enum(["ADMIN", "DISCIPLINE", "IT", "CURRICULUM", "ECA"]).optional(),
+  committee:   z.enum(["ADMIN", "DISCIPLINE", "IT", "CURRICULUM", "ECA", "SCHOOL"]).optional(),
 })
 
 export async function GET(req: NextRequest) {

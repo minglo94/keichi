@@ -9,6 +9,8 @@ import {
   AGENT_DOC_TYPES, type AgentKey,
 } from "@/lib/agents"
 import { runAgentTool } from "@/lib/agent-tools"
+import { indexDocument } from "@/lib/knowledge-base"
+import { getRecentMemories, formatRecentMemories } from "@/lib/agent-memory"
 import { prisma } from "@/lib/prisma"
 import { pusherServer } from "@/lib/pusher"
 import { aiRateLimit } from "@/lib/rate-limit"
@@ -71,6 +73,16 @@ export async function POST(req: NextRequest) {
 
         let specialistSystem = loadCharter(routeKey)
 
+        // Cross-conversation memory: let the specialist see recent summaries
+        // from this teacher's other conversations. Best-effort — a failure
+        // here should never block the chat response.
+        try {
+          const recentMemories = await getRecentMemories(userId)
+          specialistSystem += formatRecentMemories(recentMemories)
+        } catch (err) {
+          console.error("[agents/chat] memory injection failed:", err)
+        }
+
         // Inject default templates for this agent's docTypes
         try {
           const relevantTypes = AGENT_DOC_TYPES[routeKey as AgentKey] ?? []
@@ -101,7 +113,7 @@ export async function POST(req: NextRequest) {
           send({ agentId: specId, status: "running", tool: toolCall.tool })
           await pushEvent(userId, "agent-status", { agentId: specId, status: "running", tool: toolCall.tool })
 
-          const toolResult = await runAgentTool(toolCall)
+          const toolResult = await runAgentTool(toolCall, userId)
 
           workingMessages = [
             ...workingMessages,
@@ -154,6 +166,23 @@ export async function POST(req: NextRequest) {
               },
             })
             documentId = doc.id
+
+            // Fire-and-forget: index into the knowledge base for future RAG
+            // retrieval (search_knowledge_base tool, quiz-gen auto-retrieval).
+            // Never await — indexing must not add latency or failure risk to
+            // the chat response. isStudentData defaults false here: most
+            // agent-generated documents (exam papers, admin notices, meeting
+            // minutes) aren't student-identifying, but this is a judgment
+            // call — revisit if a docType that regularly embeds student names
+            // (e.g. individual parent notices) turns out to need it true.
+            indexDocument({
+              title: docTitle,
+              sourceType: "AGENT_DOCUMENT",
+              sourceId: doc.id,
+              ownerId: userId,
+              content: cleanContent,
+              isStudentData: false,
+            }).catch((err) => console.error("[agents/chat] knowledge-base indexing failed:", err))
 
             await prisma.agentAuditLog.create({
               data: { userId, action: "GENERATE", agentId: specId, engine: "claude", docType },

@@ -31,4 +31,3 @@ prisma/*.db
 prisma/*.db-journal
 .env
 /docs
-.env.bak

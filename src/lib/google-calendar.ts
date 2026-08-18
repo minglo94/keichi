@@ -5,7 +5,7 @@
  *
  * Responsibilities:
  *  - Token management: refresh access_token when expired, persist to DB
- *  - Calendar management: ensure dedicated "AI 大智若愚" calendar exists
+ *  - Calendar management: ensure dedicated "基智行政平台" calendar exists
  *  - CRUD: create / update / delete events on Google Calendar
  *  - Watch channels: subscribe to push notifications for bidirectional sync
  *  - Webhook processing: incremental sync (syncToken) when Google sends a ping
@@ -23,7 +23,7 @@ import type { CalendarEvent, GoogleCalendarConnection } from "@prisma/client"
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 const GOOGLE_CALENDAR_BASE = "https://www.googleapis.com/calendar/v3"
-const CALENDAR_NAME = "AI 大智若愚"
+const CALENDAR_NAME = "基智行政平台"
 const CALENDAR_COLOR = "#0B8043" // sage green
 // Refresh the token if it expires within 5 minutes
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000
@@ -137,7 +137,7 @@ async function gcalFetch(
 // ─── Calendar Management ─────────────────────────────────────────
 
 /**
- * Ensures the dedicated "AI 大智若愚" calendar exists in the user's Google account.
+ * Ensures the dedicated "基智行政平台" calendar exists in the user's Google account.
  * If it does not exist, creates it.
  * Returns the calendarId.
  */

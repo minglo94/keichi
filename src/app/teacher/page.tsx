@@ -17,7 +17,10 @@ export default async function TeacherDashboard() {
 
   const upcomingTodos = await prisma.todo.findMany({
     where: {
-      createdById: session.user.id,
+      OR: [
+        { createdById: session.user.id },
+        { assignees: { some: { userId: session.user.id } } },
+      ],
       status: { not: "DONE" },
     },
     orderBy: [{ dueDate: "asc" }],

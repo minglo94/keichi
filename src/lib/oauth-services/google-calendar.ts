@@ -31,7 +31,7 @@ export const googleCalendarHandler: OAuthServiceHandler = {
       throw new Error("no_refresh_token")
     }
 
-    // 1. Ensure dedicated "AI 大智若愚" calendar exists
+    // 1. Ensure dedicated "基智行政平台" calendar exists
     const googleCalendarId = await ensureDedicatedCalendar(userId, tokens.access_token)
     if (!googleCalendarId) throw new Error("calendar_create")
 

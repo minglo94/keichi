@@ -16,7 +16,7 @@ export function OnboardingTour() {
 
   const steps = [
     {
-      title: "歡迎來到 基智若愚 ICHI！",
+      title: "歡迎來到 基智行政平台！",
       body: "這是一個專為您設計的學習與行政管理平台。讓我們花 30 秒了解核心功能。",
       icon: "🎓"
     },
@@ -32,7 +32,7 @@ export function OnboardingTour() {
     },
     {
       title: "準備好開始了嗎？",
-      body: "祝您在 ICHI 有個愉快的學習與工作體驗！",
+      body: "祝您在 基智行政平台 有個愉快的學習與工作體驗！",
       icon: "🚀"
     }
   ]
