@@ -220,9 +220,9 @@ export default function PAAnnouncementsPage() {
         <div className="flex items-center gap-3 mb-1">
           <Link href="/teacher/committee/admin" className="text-caption" style={{ color: "var(--color-ink-400)" }}>← 行政</Link>
           <span style={{ color: "var(--color-ink-300)" }}>/</span>
-          <h1 className="text-h1">早會廣播公告</h1>
+          <h1 className="text-h1">宣佈訊息</h1>
         </div>
-        <p className="text-caption" style={{ color: "var(--color-ink-400)" }}>管理今日於早會 PA 廣播的公告，支援分類、AI 搜尋及 Excel 匯入匯出。</p>
+        <p className="text-caption" style={{ color: "var(--color-ink-400)" }}>管理今日宣佈的訊息，支援分類、AI 搜尋及 Excel 匯入匯出。</p>
       </div>
 
       {/* Stats */}
@@ -275,7 +275,7 @@ export default function PAAnnouncementsPage() {
           </div>
           <div>
             <label className="text-caption block mb-1" style={{ color: "var(--color-ink-700)" }}>內容 *</label>
-            <textarea required rows={4} value={body} onChange={(e) => setBody(e.target.value)} placeholder="廣播內容" className={`${inputCls} resize-none`} style={inputStyle} />
+            <textarea required rows={4} value={body} onChange={(e) => setBody(e.target.value)} placeholder="宣佈內容" className={`${inputCls} resize-none`} style={inputStyle} />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -305,7 +305,7 @@ export default function PAAnnouncementsPage() {
               </select>
             </div>
             <div>
-              <label className="text-caption block mb-1" style={{ color: "var(--color-ink-700)" }}>廣播日期</label>
+              <label className="text-caption block mb-1" style={{ color: "var(--color-ink-700)" }}>宣佈日期</label>
               <input type="datetime-local" value={publishAt} onChange={(e) => setPublishAt(e.target.value)} className={inputCls} style={inputStyle} />
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { fetchArray } from "@/lib/fetch-json"
 
 type ClassInfo = { id: string; name: string }
 type LeaderboardEntry = {
@@ -21,9 +22,8 @@ export default function StudentPointsPage() {
 
   // Fetch enrolled classes on mount
   useEffect(() => {
-    fetch("/api/classes")
-      .then((r) => r.json())
-      .then((data: ClassInfo[]) => {
+    fetchArray<ClassInfo>("/api/classes")
+      .then((data) => {
         setClasses(data)
         if (data.length > 0) setActiveClass(data[0])
       })
@@ -33,9 +33,8 @@ export default function StudentPointsPage() {
   useEffect(() => {
     if (!activeClass) return
     setLoading(true)
-    fetch(`/api/classes/${activeClass.id}/points`)
-      .then((r) => r.json())
-      .then((data: LeaderboardEntry[]) => {
+    fetchArray<LeaderboardEntry>(`/api/classes/${activeClass.id}/points`)
+      .then((data) => {
         setLeaderboard(data)
         setLoading(false)
       })

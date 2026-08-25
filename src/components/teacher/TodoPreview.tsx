@@ -10,7 +10,7 @@ type TodoStatus    = "OPEN" | "IN_PROGRESS" | "DONE"
 type Todo = {
   id:          string
   title:       string
-  committee:   CommitteeType
+  committee:   CommitteeType | null
   status:      TodoStatus
   dueDate:     string | null
   description: string | null
@@ -101,7 +101,7 @@ export function TodoPreview({ initialTodos }: { initialTodos: Todo[] }) {
             return (
               <li
                 key={todo.id}
-                className={`${BORDER_CLASS[todo.committee]} pl-4 pr-3 py-3 rounded-r-card flex items-start gap-3`}
+                className={`${todo.committee ? BORDER_CLASS[todo.committee] : "committee-border-none"} pl-4 pr-3 py-3 rounded-r-card flex items-start gap-3`}
                 style={{
                   background: "var(--color-surface-2)",
                   borderRadius: "0 8px 8px 0",

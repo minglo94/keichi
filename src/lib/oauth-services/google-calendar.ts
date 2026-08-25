@@ -12,6 +12,7 @@ import {
   saveConnection,
   ensureDedicatedCalendar,
   subscribeToCalendarWatch,
+  backfillCommitteeEventsForUser,
 } from "@/lib/google-calendar"
 import type { OAuthServiceHandler, OAuthTokens } from "./types"
 
@@ -47,6 +48,13 @@ export const googleCalendarHandler: OAuthServiceHandler = {
     // 3. Subscribe to push notifications for bidirectional sync (best-effort)
     await subscribeToCalendarWatch(userId).catch((err) => {
       console.error("[OAuthService:google-calendar] watch subscribe failed:", err)
+    })
+
+    // 4. Push existing school-wide (SCHOOL) and this teacher's own committees'
+    //    events into their calendar right away, rather than waiting for the
+    //    next edit to one of those events.
+    backfillCommitteeEventsForUser(userId).catch((err) => {
+      console.error("[OAuthService:google-calendar] committee backfill failed:", err)
     })
 
     // Return params appended to the success redirect URL

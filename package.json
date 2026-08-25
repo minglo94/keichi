@@ -18,7 +18,9 @@
     "db:seed:local": "DATABASE_URL=postgresql://postgres:postgres@localhost:5433/keichi?schema=public DATABASE_URL_UNPOOLED=postgresql://postgres:postgres@localhost:5433/keichi?schema=public prisma db seed",
     "db:reset:local": "docker compose down -v && docker compose up -d --wait && npm run db:push:local && npm run db:seed:local",
     "db:studio:local": "DATABASE_URL=postgresql://postgres:postgres@localhost:5433/keichi?schema=public DATABASE_URL_UNPOOLED=postgresql://postgres:postgres@localhost:5433/keichi?schema=public prisma studio",
-    "email:test": "node --env-file=.env --env-file-if-exists=.env.local --import tsx scripts/test-email.ts"
+    "email:test": "node --env-file=.env --env-file-if-exists=.env.local --import tsx scripts/test-email.ts",
+    "calendar:cleanup:dry": "node --env-file=.env --env-file-if-exists=.env.local --import tsx scripts/delete-old-calendar-events.ts",
+    "calendar:cleanup:confirm": "node --env-file=.env --env-file-if-exists=.env.local --import tsx scripts/delete-old-calendar-events.ts --confirm"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -52,6 +54,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "resend": "^6.17.2",
+    "web-push": "^3.6.7",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -60,6 +63,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.20",
     "eslint": "^8",
     "eslint-config-next": "14.2.30",

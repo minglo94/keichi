@@ -393,7 +393,182 @@ async function main() {
     })
   }
 
-  console.log("Seed completed: demo accounts + class + todos + committee tools + agent templates created.")
+  // ── 提示詞庫 (Prompt Library) — built-in prompts, ported from
+  // github.com/minglo94/aiteacher. createdById stays null ("system" prompt,
+  // ADMIN-only edit). update:{} so re-seeding never clobbers an admin's edits.
+  const PROMPT_SEED: {
+    id: string
+    subject: "LESSON" | "MATERIAL" | "ASSESSMENT" | "FEEDBACK" | "PARENT" | "CLASSROOM" | "ADMIN" | "PD"
+    type: "PLAN" | "CREATE" | "ASSESS" | "COMMUNICATE"
+    title: string
+    tags: string[]
+    promptText: string
+  }[] = [
+    {
+      id: "lesson-plan", subject: "LESSON", type: "PLAN",
+      title: "設計完整教案",
+      tags: ["教案", "學習目標", "課堂活動", "評估"],
+      promptText: `請為以下課堂設計完整教案：
+科目：【在此填上科目】年級：【在此填上年級】
+課題：【在此填上課題名稱】課時：【在此填上課堂時間（分鐘）】
+學習目標：【在此填上學習目標】
+請包含：引入活動、主要教學內容、課堂活動及評估方式。`,
+    },
+    {
+      id: "lesson-bloom", subject: "LESSON", type: "PLAN",
+      title: "高層次思維提問設計",
+      tags: ["布魯姆分類法", "課堂提問", "高階思維", "批判思考"],
+      promptText: `請按布魯姆分類法為以下課題設計課堂提問：
+科目：【在此填上科目】課題：【在此填上課題名稱】年級：【在此填上年級】
+請涵蓋記憶、理解、應用、分析、評鑑、創造六個層次，每層2-3條。`,
+    },
+    {
+      id: "material-worksheet", subject: "MATERIAL", type: "CREATE",
+      title: "設計學習工作紙",
+      tags: ["工作紙", "練習題", "差異化", "鞏固概念"],
+      promptText: `請設計一份學習工作紙：
+科目：【在此填上科目】年級：【在此填上年級】
+課題：【在此填上課題名稱】
+目的：【在此填上目的（鞏固概念/預習/延伸練習）】
+能力程度：【在此填上能力水平（基礎/中等/進階）】
+請包含：說明、練習題、思考問題。`,
+    },
+    {
+      id: "material-differentiation", subject: "MATERIAL", type: "CREATE",
+      title: "差異化學習活動",
+      tags: ["差異化教學", "因材施教", "高能力", "學習支援"],
+      promptText: `請為以下課題設計差異化教學活動：
+科目：【在此填上科目】年級：【在此填上年級】
+課題：【在此填上課題名稱】
+班級情況：【在此填上班級特點】
+請分別為高能力、中等、需要支援的學生，提供不同活動建議。`,
+    },
+    {
+      id: "assessment-quiz", subject: "ASSESSMENT", type: "ASSESS",
+      title: "設計測驗題目",
+      tags: ["測驗", "選擇題", "問答題", "評分標準"],
+      promptText: `請為以下課題設計測驗題目：
+科目：【在此填上科目】年級：【在此填上年級】
+課題：【在此填上課題名稱】
+題型：【在此填上題型（選擇題/填充題/問答題/混合）】
+題目數量：【在此填上數量】
+難度分佈：【在此填上難度要求（例：容易30%，中等50%，困難20%）】
+請附答案及評分標準。`,
+    },
+    {
+      id: "assessment-rubric", subject: "ASSESSMENT", type: "ASSESS",
+      title: "設計評分準則 (Rubric)",
+      tags: ["Rubric", "評分準則", "評估維度", "等級描述"],
+      promptText: `請為以下評估任務設計詳細的評分準則：
+科目：【在此填上科目】
+評估任務：【在此填上評估任務描述】
+年級：【在此填上年級】最高分：【在此填上總分】
+評估維度：【在此填上評估方面（內容/語言/結構/創意等）】`,
+    },
+    {
+      id: "assessment-errors", subject: "ASSESSMENT", type: "ASSESS",
+      title: "分析學生常見錯誤",
+      tags: ["錯誤分析", "補救教學", "學習困難", "教學策略"],
+      promptText: `請幫我分析以下學生作品中的常見錯誤並提出教學建議：
+科目：【在此填上科目】年級：【在此填上年級】
+評估任務：【在此填上任務說明】
+典型錯誤例子：【在此填上學生的典型錯誤】
+請分類錯誤類型、分析原因並建議補救教學策略。`,
+    },
+    {
+      id: "feedback-report", subject: "FEEDBACK", type: "COMMUNICATE",
+      title: "撰寫學習報告評語",
+      tags: ["評語", "學習報告", "正面語氣", "建設性反饋"],
+      promptText: `請為以下學生撰寫學習報告評語（約80-100字，繁體中文）：
+學生特點及表現：【在此填上學習特點和表現】
+需改進的地方：【在此填上需改進方面】
+建議：【在此填上給家長/學生的建議】
+請以正面、建設性語氣，先表揚再提改善建議。`,
+    },
+    {
+      id: "parent-notice", subject: "PARENT", type: "COMMUNICATE",
+      title: "撰寫家長通告",
+      tags: ["家長通告", "正式文書", "活動通知", "回條"],
+      promptText: `請撰寫一份家長通告（繁體中文，正式語氣）：
+事項名稱：【在此填上活動或事項名稱】
+日期及時間：【在此填上日期和時間】
+地點/方式：【在此填上地點或進行方式】
+家長需配合事項：【在此填上家長需要做的事】
+截止日期：【在此填上回條截止日期（如適用）】`,
+    },
+    {
+      id: "admin-minutes", subject: "ADMIN", type: "PLAN",
+      title: "整理會議記錄",
+      tags: ["會議記錄", "議題", "決議", "跟進事項"],
+      promptText: `請將以下會議記錄整理成正式格式：
+會議名稱：【在此填上會議名稱】
+日期及時間：【在此填上日期和時間】
+出席人士：【在此填上出席者名單】
+原始記錄：【在此填上流水帳記錄內容】
+請整理成：議題、討論內容、決議、跟進事項的格式。`,
+    },
+    {
+      id: "admin-email", subject: "ADMIN", type: "COMMUNICATE",
+      title: "草擬電郵/信件",
+      tags: ["電郵", "信件", "正式溝通", "語氣"],
+      promptText: `請幫我撰寫以下用途的電郵或信件（繁體中文）：
+收件人：【在此填上收件人（家長/校長/同事/外部機構）】
+事由：【在此填上電郵/信件目的】
+主要內容要點：【在此填上需要表達的主要內容】
+語氣：【在此填上語氣要求（正式/親切/跟進/感謝）】`,
+    },
+    {
+      id: "admin-annual-plan", subject: "ADMIN", type: "PLAN",
+      title: "撰寫周年計劃關注事項報告",
+      tags: ["周年計劃", "關注事項", "成就", "反思", "持分者問卷", "APASO"],
+      promptText: `現在請你為以下關注事項填寫「成就」、「反思」及「回饋與跟進」三個部分。
+
+【格式參考（上年報告）】
+【在此填上上年關注事項報告的格式範例或段落】
+
+【中期報告內容】
+【在此填上本年中期報告的相關內容】
+
+【Word 補充資料】
+【在此填上Word文件中的補充說明資料】
+
+【APASO 問卷數據】
+【在此填上APASO問卷的相關數據結果】
+
+【學校關注事項問卷數據】
+【在此填上學校關注事項問卷的相關數據結果】
+
+【持分者問卷數據】
+【在此填上持分者問卷的相關數據結果】
+
+撰寫要求：
+1. 格式須與上年報告一致。
+2. 內容完全根據上述提供的資料撰寫，不可自行增添未有數據支持的內容。
+3. 在「成就」部分的結論中，視乎適用性，盡量涵蓋以下關鍵詞：國民及全球公民身份認同、寬闊的知識基礎、語文能力、共通能力、資訊素養、生涯規劃。
+4. 引用數據時請具體說明來源（如 APASO、持分者問卷等）及數值。`,
+    },
+    {
+      id: "pd-reflection", subject: "PD", type: "PLAN",
+      title: "引導教學反思",
+      tags: ["教學反思", "專業成長", "改善建議", "教學策略"],
+      promptText: `請根據以下情況幫我進行教學反思並提出改善建議：
+科目及年級：【在此填上科目和年級】
+課堂目標：【在此填上本課目標】
+課堂情況：【在此填上課堂過程描述】
+困難或挑戰：【在此填上遇到的困難】
+請提供：優點肯定、改善建議、下次可嘗試的策略。`,
+    },
+  ]
+
+  for (const p of PROMPT_SEED) {
+    await prisma.prompt.upsert({
+      where:  { id: p.id },
+      update: {},
+      create: { ...p, createdById: null },
+    })
+  }
+
+  console.log("Seed completed: demo accounts + class + todos + committee tools + agent templates + prompt library created.")
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect())

@@ -16,7 +16,8 @@ const COLORS: Record<CommitteeType, { bg: string; text: string }> = {
   ECA:        { bg: "var(--color-eca-soft)",        text: "var(--color-eca)"        },
 }
 
-export function CommitteeBadge({ committee }: { committee: CommitteeType }) {
+export function CommitteeBadge({ committee }: { committee?: CommitteeType | null }) {
+  if (!committee || !COLORS[committee]) return null
   const { bg, text } = COLORS[committee]
   return (
     <span

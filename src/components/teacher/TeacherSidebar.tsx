@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { useState, type ComponentType } from "react"
 import { signOut } from "next-auth/react"
 import Image from "next/image"
-import { NotificationBell } from "@/components/teacher/NotificationBell"
+import { NotificationBell } from "@/components/NotificationBell"
 
 type User = {
   name?: string | null
@@ -24,6 +24,7 @@ const MAIN_NAV: NavItem[] = [
   { href: "/teacher/activities",    label: "活動管理", icon: ActivityIcon,  hidden: true },
   { href: "/teacher/missions",      label: "任務管理", icon: ClipboardIcon, hidden: true },
   { href: "/teacher/points",        label: "積點",     icon: StarIcon,      hidden: true },
+  { href: "/teacher/prompts",       label: "提示詞庫", icon: PromptIcon     },
   { href: "/teacher/agents",        label: "AI 助理",  icon: AgentIcon      },
 ]
 
@@ -37,8 +38,10 @@ const COMMITTEE_NAV = [
 
 const ADMIN_NAV: NavItem[] = [
   { href: "/teacher/admin/users",    label: "用戶管理", icon: UsersIcon  },
+  { href: "/teacher/admin/students", label: "學生資料", icon: StudentIcon },
   { href: "/teacher/admin/groups",   label: "群組管理", icon: GroupsIcon },
   { href: "/teacher/admin/agents",   label: "AI 助理管理", icon: AgentIcon },
+  { href: "/teacher/admin/broadcast", label: "推送訊息", icon: BroadcastIcon },
   { href: "/teacher/admin/audit",    label: "操作紀錄", icon: AuditIcon  },
   { href: "/teacher/admin/settings", label: "系統設定", icon: SettingsIcon },
 ]
@@ -61,7 +64,7 @@ export function TeacherSidebar({ user }: { user: User }) {
       className="flex flex-col h-full"
       style={{ background: "var(--color-surface)", borderRight: "1px solid var(--color-border)" }}
     >
-      {/* Logo — replace /logo-placeholder.svg with your actual logo */}
+      {/* Logo */}
       <div className="px-5 pt-6 pb-4 flex items-center gap-2.5">
         <Image
           src="/logo.png"
@@ -202,10 +205,11 @@ export function TeacherSidebar({ user }: { user: User }) {
           <MenuIcon />
         </button>
         <Image
-          src="/logo-placeholder.svg"
+          src="/logo.png"
           alt="基智行政平台 Logo"
           width={24}
           height={24}
+          priority
         />
         <span className="font-semibold text-base" style={{ color: "var(--color-ink-900)" }}>
           基智行政平台
@@ -407,6 +411,35 @@ function AuditIcon() {
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
       <path d="M14 2v6h6"/>
       <path d="M9 13h6M9 17h4"/>
+    </svg>
+  )
+}
+
+function StudentIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+      <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+    </svg>
+  )
+}
+
+function BroadcastIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 11v3a1 1 0 0 0 1 1h3l4 3V7L7 10H4a1 1 0 0 0-1 1z"/>
+      <path d="M16 9a4 4 0 0 1 0 6"/>
+      <path d="M19 6a8 8 0 0 1 0 12"/>
+    </svg>
+  )
+}
+
+function PromptIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 18h6"/>
+      <path d="M10 22h4"/>
+      <path d="M12 2a6 6 0 0 0-4 10.47c.42.4.68.94.75 1.53H15.25c.07-.6.33-1.13.75-1.53A6 6 0 0 0 12 2z"/>
     </svg>
   )
 }

@@ -68,6 +68,24 @@ enum CommitteeType {
   SCHOOL // 校曆及假期 — school-wide events & holidays (calendar category)
 }
 
+enum PromptSubject {
+  LESSON      // 備課設計
+  MATERIAL    // 教材製作
+  ASSESSMENT  // 評估工具
+  FEEDBACK    // 學生反饋
+  PARENT      // 家長溝通
+  CLASSROOM   // 課堂管理
+  ADMIN       // 行政文書
+  PD          // 專業發展
+}
+
+enum PromptType {
+  PLAN         // 規劃
+  CREATE       // 創作
+  ASSESS       // 評估
+  COMMUNICATE  // 溝通
+}
+
 enum ToolType {
   LINK
   EMBED
@@ -148,7 +166,8 @@ model VerificationToken {
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
-  name          String?
+  name          String? // 中文姓名 (primary display name)
+  nameEn        String? // 英文姓名 — helps match rosters pasted in either language
   image         String?
   role          Role      @default(STUDENT)
   emailVerified DateTime?
@@ -211,14 +230,39 @@ model User {
   // Procurement requests
   procurementRequests ProcurementRequest[] @relation("ProcurementRequests")
 
+  // 提示詞庫 (Prompt Library)
+  promptsCreated Prompt[] @relation("PromptsCreated")
   // Google Calendar sync
   googleCalendarConnection GoogleCalendarConnection?
+  // 學校活動及假期 copies fanned out to this user's own calendar
+  calendarEventGoogleSyncs CalendarEventGoogleSync[]
+  // Web Push (PWA) device subscriptions
+  pushSubscriptions PushSubscription[]
 }
 
 // ─────────────────────────────────────────
 // NOTIFICATIONS — persistent in-app notifications (announcements,
 // doc approvals, behavior records). Complements ephemeral Pusher events.
 // ─────────────────────────────────────────
+// Web Push (PWA) subscriptions — one row per DEVICE, not per user: a teacher
+// with an iPad and a phone has two. `endpoint` is the browser-issued push URL
+// and is globally unique, so it doubles as the natural key for upserts.
+// Rows are deleted when the push service reports the subscription is gone
+// (HTTP 404/410), e.g. the user removed the home-screen app.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique @db.Text
+  p256dh    String // client public key (payload encryption)
+  auth      String // client auth secret
+  userAgent String? // helps a user tell their devices apart
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 model Notification {
   id        String   @id @default(cuid())
   userId    String
@@ -701,6 +745,7 @@ model CalendarEvent {
   syncedAt      DateTime? // Last successful sync timestamp
 
   author User @relation("CalendarEvents", fields: [authorId], references: [id], onDelete: Cascade)
+  googleSyncs CalendarEventGoogleSync[]
 
   @@index([startDate])
   @@index([committee])
@@ -734,6 +779,26 @@ model GoogleCalendarConnection {
   @@index([watchChannelId])
 }
 
+// SCHOOL-committee (學校活動及假期) events fan out to every connected teacher's
+// own dedicated calendar, not just the author's — so one CalendarEvent can have
+// many Google-side copies. This tracks each (event, recipient) copy's
+// googleEventId. The author's own copy is still tracked on
+// CalendarEvent.googleEventId as before; this table only covers OTHER
+// recipients the event was pushed to.
+model CalendarEventGoogleSync {
+  id              String   @id @default(cuid())
+  calendarEventId String
+  userId          String
+  googleEventId   String
+  syncedAt        DateTime @default(now())
+
+  calendarEvent CalendarEvent @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([calendarEventId, userId])
+  @@index([userId])
+}
+
 model CommitteeTool {
   id          String        @id @default(cuid())
   committee   CommitteeType
@@ -750,6 +815,26 @@ model CommitteeTool {
   createdBy User @relation("CommitteeTools", fields: [createdById], references: [id])
 
   @@index([committee, order])
+}
+
+// 提示詞庫 — shared AI prompt library for teachers. Seeded prompts have
+// createdById=null ("system" prompts, ADMIN-only edit); teacher-added ones
+// are editable by their creator or an ADMIN.
+model Prompt {
+  id          String        @id @default(cuid())
+  subject     PromptSubject
+  type        PromptType
+  title       String
+  tags        String[]
+  promptText  String        @db.Text
+  createdById String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  createdBy   User?         @relation("PromptsCreated", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([subject])
+  @@index([type])
 }
 
 // Fixed-window rate-limit counters (survives serverless cold starts).

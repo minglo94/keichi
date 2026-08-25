@@ -20,7 +20,7 @@ export async function GET() {
   })
 
   const wb = new ExcelJS.Workbook()
-  const ws = wb.addWorksheet("早會廣播公告")
+  const ws = wb.addWorksheet("宣佈訊息")
 
   ws.columns = [
     { header: "日期",   key: "date",     width: 12 },

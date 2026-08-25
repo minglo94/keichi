@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { getPusherClient } from "@/lib/pusher-client"
+import { PushToggle } from "@/components/teacher/PushToggle"
 
 type Notification = {
   id:        string
@@ -44,15 +45,16 @@ export function NotificationBell() {
   // Live updates via Pusher private channel
   useEffect(() => {
     if (!userId) return
-    let channel: ReturnType<ReturnType<typeof getPusherClient>["subscribe"]> | null = null
+    let channel: ReturnType<NonNullable<ReturnType<typeof getPusherClient>>["subscribe"]> | null = null
     try {
       const pusher = getPusherClient()
+      if (!pusher) return
       channel = pusher.subscribe(`private-user-${userId}`)
       channel.bind("notification", () => load())
       channel.bind("doc-approval", () => load())
     } catch {}
     return () => {
-      try { channel?.unbind_all(); getPusherClient().unsubscribe(`private-user-${userId}`) } catch {}
+      try { channel?.unbind_all(); getPusherClient()?.unsubscribe(`private-user-${userId}`) } catch {}
     }
   }, [userId, load])
 
@@ -129,6 +131,9 @@ export function NotificationBell() {
               })}
             </div>
           )}
+          <div className="border-t" style={{ borderColor: "var(--color-border)" }}>
+            <PushToggle />
+          </div>
         </div>
       )}
     </div>

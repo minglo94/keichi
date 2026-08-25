@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { StudentRosterInput, makeRow, type RosterRow } from "@/components/teacher/StudentRosterInput"
 
 type Activity = {
   id:          string
@@ -41,7 +42,57 @@ export default function TeacherActivitiesPage() {
   const [end,     setEnd]     = useState("")
   const [location, setLocation] = useState("")
   const [activityType, setActivityType] = useState<"" | "ECA" | "ACADEMIC">("")
-  const [studentList, setStudentList] = useState("")
+
+  // Student roster (班級/學號/姓名 grid) + the accounts it resolved to.
+  const [roster,       setRoster]       = useState<RosterRow[]>([makeRow(1)])
+  const [resolvedIds,  setResolvedIds]  = useState<string[]>([])
+  const [resolving,    setResolving]    = useState(false)
+  const [matchSummary, setMatchSummary] = useState<{ matched: number; unmatched: number } | null>(null)
+
+  // Match roster rows to student accounts so the teacher sees who was found
+  // (and who wasn't) BEFORE saving, rather than losing rows silently.
+  async function resolveRoster(): Promise<string[] | null> {
+    setResolving(true)
+    try {
+      const res = await fetch("/api/students/resolve", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ rows: roster.map(({ id, className, studentId, name }) => ({ id, className, studentId, name })) }),
+      })
+      if (!res.ok) throw new Error()
+      const { results } = await res.json() as {
+        results: { id: number; matched: boolean; userId?: string; name?: string | null; email?: string | null }[]
+      }
+      const byId = new Map(results.map((r) => [r.id, r]))
+
+      setRoster((prev) => prev.map((row) => {
+        const hit = byId.get(row.id)
+        if (!hit) return { ...row, status: undefined }
+        return {
+          ...row,
+          status: hit.matched
+            ? { ok: true,  label: hit.email ?? hit.name ?? "已配對" }
+            : { ok: false, label: "找不到" },
+        }
+      }))
+
+      const ids = results.filter((r) => r.matched && r.userId).map((r) => r.userId!)
+      setResolvedIds(ids)
+      // Only count rows the teacher actually filled in.
+      const filled = roster.filter((r) => r.name.trim() || (r.className.trim() && r.studentId.trim())).length
+      setMatchSummary({ matched: ids.length, unmatched: Math.max(0, filled - ids.length) })
+      setResolving(false)
+      return ids
+    } catch {
+      setFormError("配對失敗，請重試。")
+      setResolving(false)
+      return null
+    }
+  }
+
+  function resetRoster() {
+    setRoster([makeRow(1)]); setResolvedIds([]); setMatchSummary(null)
+  }
 
   async function load() {
     setLoading(true)
@@ -63,6 +114,16 @@ export default function TeacherActivitiesPage() {
       return
     }
 
+    // If the teacher filled the roster but never pressed 配對, resolve now —
+    // otherwise those students would be silently dropped on save.
+    let ids = resolvedIds
+    const filledRows = roster.filter((r) => r.name.trim() || (r.className.trim() && r.studentId.trim())).length
+    if (filledRows > 0 && matchSummary === null) {
+      const resolved = await resolveRoster()
+      if (resolved === null) { setSaving(false); return }
+      ids = resolved
+    }
+
     try {
       const res = await fetch("/api/activities", {
         method:  "POST",
@@ -74,13 +135,14 @@ export default function TeacherActivitiesPage() {
           endTime:      end ? new Date(end).toISOString() : undefined,
           location:     location || undefined,
           activityType: activityType || undefined,
-          studentList:  studentList || undefined,
+          studentIds:   ids.length ? ids : undefined,
         }),
       })
       if (res.ok) {
         const created: Activity = await res.json()
         setActivities((prev) => [created, ...prev])
-        setTitle(""); setDesc(""); setStart(""); setEnd(""); setLocation(""); setActivityType(""); setStudentList("")
+        setTitle(""); setDesc(""); setStart(""); setEnd(""); setLocation(""); setActivityType("")
+        resetRoster()
         setShowForm(false)
       } else {
         const body = await res.json().catch(() => ({}))
@@ -174,11 +236,24 @@ export default function TeacherActivitiesPage() {
               className={`${inputCls} resize-none`} style={inputStyle} />
           </div>
           <div>
-            <label className="text-caption block mb-1 font-medium" style={{ color: "var(--color-ink-700)" }}>學生名單 (選填)</label>
-            <textarea rows={4} value={studentList} onChange={(e) => setStudentList(e.target.value)}
-              placeholder="可從 Excel 貼上姓名或 Email (每行一個)"
-              className={`${inputCls} resize-none font-mono text-[11px]`} style={inputStyle} />
-            <p className="text-[10px] text-gray-400 mt-1">系統將自動匹配學生並檢查時間衝突</p>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-caption font-medium" style={{ color: "var(--color-ink-700)" }}>學生名單（選填）</label>
+              <button type="button" onClick={resolveRoster} disabled={resolving || roster.length === 0}
+                className="text-caption font-medium" style={{ color: "var(--color-accent)", opacity: resolving || roster.length === 0 ? 0.5 : 1 }}>
+                {resolving ? "配對中…" : "配對學生帳戶"}
+              </button>
+            </div>
+            <StudentRosterInput
+              rows={roster}
+              onChange={setRoster}
+              footnote="貼上後按「配對學生帳戶」，系統會以班級＋學號找出對應學生（連電郵），並在儲存時檢查時間衝突。"
+            />
+            {matchSummary && (
+              <p className="text-caption mt-2" style={{ color: matchSummary.unmatched > 0 ? "var(--color-discipline)" : "var(--color-curriculum)" }}>
+                已配對 {matchSummary.matched} 人
+                {matchSummary.unmatched > 0 && ` · ${matchSummary.unmatched} 人找不到帳戶（將不會被加入）`}
+              </p>
+            )}
           </div>
           {formError && (
             <p className="text-caption px-3 py-2 rounded-input" style={{ background: "var(--color-discipline-soft, #fef2f2)", color: "var(--color-discipline, #dc2626)" }}>

@@ -389,6 +389,39 @@ export default function ActivityDocsPage() {
 
   // ── Generate ──────────────────────────────────────────
 
+  // After the docs download, offer to put the activity on the school calendar
+  // under 課外活動 (ECA). One event per session date. Best-effort: a calendar
+  // failure must not make a successful generation look broken.
+  async function maybeAddToCalendar() {
+    const dated = sessions.filter((s) => s.date)
+    if (dated.length === 0) return
+    if (!confirm(`文件已生成。\n\n要將此活動加入行事曆（課外活動）嗎？\n共 ${dated.length} 個日期。`)) return
+
+    let ok = 0
+    for (const s of dated) {
+      // CalendarEvent has no location field — fold the venue into the notes.
+      const parts = [s.time, s.location].filter(Boolean)
+      try {
+        const res = await fetch("/api/calendar-events", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title:       s.activityName?.trim() || activityName.trim(),
+            startDate:   new Date(`${s.date}T00:00:00`).toISOString(),
+            allDay:      true,
+            committee:   "ECA",
+            description: parts.length ? parts.join(" · ") : undefined,
+          }),
+        })
+        if (res.ok) ok++
+      } catch { /* keep going — report the total at the end */ }
+    }
+
+    alert(ok === dated.length
+      ? `已加入 ${ok} 個活動到行事曆（課外活動）。`
+      : `已加入 ${ok} / ${dated.length} 個活動，部分失敗，請於行事曆檢查。`)
+  }
+
   async function handleGenerate() {
     if (!activityName.trim() || !teacher.trim() || !issueDate) {
       setError("請填寫活動名稱、負責老師及發出日期。")
@@ -454,6 +487,8 @@ export default function ActivityDocsPage() {
       document.body.appendChild(a)
       a.click()
       setTimeout(() => { URL.revokeObjectURL(url); a.remove() }, 1000)
+
+      await maybeAddToCalendar()
     } catch (e: any) {
       setError(e?.message ?? "發生錯誤，請稍後再試。")
     } finally {

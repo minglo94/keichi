@@ -184,6 +184,11 @@ export default function CalendarPage() {
       if (res.ok) {
         const updated: CalendarEvent = await res.json()
         setEvents((prev) => prev.map((ev) => ev.id === updated.id ? updated : ev))
+      } else {
+        // Surface the failure — silently closing the form looks like it saved.
+        setSaving(false)
+        window.alert(res.status === 403 ? "你沒有權限編輯此活動。" : `儲存失敗 (${res.status})`)
+        return
       }
     } else {
       const res = await fetch("/api/calendar-events", {
@@ -194,6 +199,10 @@ export default function CalendarPage() {
       if (res.ok) {
         const created: CalendarEvent = await res.json()
         setEvents((prev) => [...prev, created])
+      } else {
+        setSaving(false)
+        window.alert(res.status === 403 ? "你沒有權限新增活動。" : `儲存失敗 (${res.status})`)
+        return
       }
     }
     setSaving(false)
@@ -201,8 +210,15 @@ export default function CalendarPage() {
   }
 
   async function deleteEvent(id: string) {
+    // Remove from the UI only after the server confirms — an optimistic
+    // removal makes a failed delete (e.g. 403) look like it worked until
+    // the next refresh.
+    const res = await fetch(`/api/calendar-events/${id}`, { method: "DELETE" })
+    if (!res.ok) {
+      window.alert(res.status === 403 ? "你沒有權限刪除此活動。" : `刪除失敗 (${res.status})`)
+      return
+    }
     setEvents((prev) => prev.filter((ev) => ev.id !== id))
-    await fetch(`/api/calendar-events/${id}`, { method: "DELETE" })
     setShowCreate(false)
   }
 
@@ -319,7 +335,7 @@ export default function CalendarPage() {
               className="bg-transparent text-caption py-1.5 outline-none font-medium"
               style={{ color: "var(--color-ink-700)" }}
             >
-              <option value="">— 全校 —</option>
+              <option value="">— 沒有 —</option>
               <option value="ADMIN">行政</option>
               <option value="DISCIPLINE">訓育</option>
               <option value="IT">資訊科技</option>
@@ -617,7 +633,7 @@ export default function CalendarPage() {
               <label className="text-caption block mb-1" style={{ color: "var(--color-ink-700)" }}>所屬組別（選填）</label>
               <select value={formCommittee} onChange={(e) => setFormCommittee(e.target.value as CommitteeType | "")}
                 className={inputCls} style={inputStyle}>
-                <option value="">— 全校 —</option>
+                <option value="">— 沒有 —</option>
                 <option value="ADMIN">行政</option>
                 <option value="DISCIPLINE">訓育</option>
                 <option value="IT">資訊科技</option>
@@ -662,7 +678,7 @@ export default function CalendarPage() {
       <div className="flex gap-4 flex-wrap mt-4">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-sm" style={{ background: "var(--color-accent)" }} />
-          <span className="text-caption" style={{ color: "var(--color-ink-500)" }}>全校</span>
+          <span className="text-caption" style={{ color: "var(--color-ink-500)" }}>沒有</span>
         </div>
         {(Object.keys(COMMITTEE_COLORS) as CommitteeType[]).map((c) => (
           <div key={c} className="flex items-center gap-1.5">

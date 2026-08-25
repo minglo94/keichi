@@ -6,6 +6,7 @@ import { getPusherClient } from "@/lib/pusher-client"
 import type { PusherPointsAwardedPayload, PusherMissionApprovedPayload } from "@/types/mission"
 import { DashboardAnnouncements } from "@/components/DashboardAnnouncements"
 import { UnifiedTimeline } from "@/components/UnifiedTimeline"
+import { fetchArray } from "@/lib/fetch-json"
 
 type ClassInfo = { id: string; name: string; classCode: string }
 type LeaderboardEntry = { rank: number; user: { id: string; name: string }; totalPoints: number }
@@ -59,7 +60,7 @@ export default function StudentDashboard() {
   }, [])
 
   useEffect(() => {
-    fetch("/api/classes").then((r) => r.json()).then((data: ClassInfo[]) => {
+    fetchArray<ClassInfo>("/api/classes").then((data) => {
       setClasses(data)
       if (data.length > 0) setActiveClass(data[0])
     })
@@ -72,9 +73,8 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     // Count due flashcards
-    fetch("/api/flashcard-decks")
-      .then((r) => r.json())
-      .then(async (decks: { id: string }[]) => {
+    fetchArray<{ id: string }>("/api/flashcard-decks")
+      .then(async (decks) => {
         let total = 0
         for (const deck of decks) {
           const res = await fetch(`/api/flashcard-decks/${deck.id}/due`)
@@ -113,10 +113,12 @@ export default function StudentDashboard() {
     })
   }, [])
 
-  // Pusher subscriptions ... (omitted for brevity in thinking but I'll keep them in code)
+  // Pusher subscriptions — optional. getPusherClient() returns null when the
+  // realtime config is missing, in which case we simply skip live updates.
   useEffect(() => {
     if (!activeClass) return
     const pusher = getPusherClient()
+    if (!pusher) return
     const channel = pusher.subscribe(`class-${activeClass.id}`)
     channel.bind("points-awarded", (data: PusherPointsAwardedPayload) => {
       showToast(`+${data.amount} 積點！`)
@@ -132,12 +134,18 @@ export default function StudentDashboard() {
   useEffect(() => {
     if (!session?.user?.id) return
     const pusher  = getPusherClient()
+    if (!pusher) return
     const channel = pusher.subscribe(`private-user-${session.user.id}`)
-    channel.bind("activity-alert", (data: { title: string; startTime: string; location?: string | null }) => {
+    const onAlert = (data: { title: string; startTime: string; location?: string | null }) => {
       const loc = data.location ? ` 於 ${data.location}` : ""
       showToast(`📢 你有一個活動：${data.title} — ${formatActivityTime(data.startTime)}${loc}`)
-    })
-    return () => { channel.unbind_all(); pusher.unsubscribe(`private-user-${session.user.id}`) }
+    }
+    channel.bind("activity-alert", onAlert)
+    // Unbind only OUR handler and leave the channel subscribed — the
+    // notification bell in the sidebar shares this private channel, and
+    // unbind_all()/unsubscribe() here would silently kill its live updates
+    // as soon as the student navigated away from the dashboard.
+    return () => { channel.unbind("activity-alert", onAlert) }
   }, [session?.user?.id])
 
   const handleJoin = async () => {

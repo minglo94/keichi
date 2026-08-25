@@ -22,6 +22,7 @@ import { auth } from "@/lib/auth"
 import {
   isConnected,
   backfillUnsyncedEvents,
+  backfillCommitteeEventsForUser,
   processIncrementalSync,
 } from "@/lib/google-calendar"
 import { z } from "zod"
@@ -53,7 +54,11 @@ export async function POST(req: NextRequest) {
   let pulled = 0
 
   if (body.direction === "push" || body.direction === "both") {
+    // Own events that never got a googleEventId...
     pushed = await backfillUnsyncedEvents(session.user.id)
+    // ...plus school-wide + this user's committees' events authored by others.
+    // Without this, a teacher only ever sees events they created themselves.
+    pushed += await backfillCommitteeEventsForUser(session.user.id)
   }
 
   if (body.direction === "pull" || body.direction === "both") {

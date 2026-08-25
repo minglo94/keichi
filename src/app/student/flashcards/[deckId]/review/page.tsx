@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { fetchArray } from "@/lib/fetch-json"
 
 type Card = { id: string; front: string; back: string }
 
@@ -21,13 +22,11 @@ export default function ReviewPage({ params }: { params: { deckId: string } }) {
   const [classes, setClasses] = useState<{ id: string }[]>([])
 
   useEffect(() => {
-    fetch(`/api/flashcard-decks/${params.deckId}/due`)
-      .then((r) => r.json())
-      .then((data: Card[]) => setCards(data))
+    fetchArray<Card>(`/api/flashcard-decks/${params.deckId}/due`)
+      .then((data) => setCards(data))
 
-    fetch("/api/classes")
-      .then((r) => r.json())
-      .then((data: { id: string }[]) => setClasses(data))
+    fetchArray<{ id: string }>("/api/classes")
+      .then((data) => setClasses(data))
   }, [params.deckId])
 
   const handleGrade = async (grade: number) => {

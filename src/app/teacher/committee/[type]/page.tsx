@@ -41,7 +41,7 @@ const CONFIGS: Record<CommitteeType, CommitteeConfig> = {
     description: "管理學校日常行政事務，包括採購申請及活動文件管理。",
     colorVar:    "admin",
     tools: [
-      { label: "早會廣播公告", description: "管理今日 PA 廣播公告、分類、AI 搜尋及匯入匯出", href: "/teacher/committee/admin/pa-announcements" },
+      { label: "宣佈訊息", description: "管理今日宣佈訊息、分類、AI 搜尋及匯入匯出", href: "/teacher/committee/admin/pa-announcements" },
       { label: "採購申請",   description: "填寫及追蹤採購申請表", href: "/teacher/committee/admin/procurement" },
       { label: "活動文件",   description: "一鍵生成通告、出席紀錄及 FAD8 學生學習紀錄 (ZIP)", href: "/teacher/committee/admin/activity-docs" },
       { label: "KCquotation 報價", description: "填寫按口頭報價採購表格、生成 DOCX，支援 AI OCR 預填", href: "/teacher/committee/admin/quotation" },
@@ -114,6 +114,7 @@ const CONFIGS: Record<CommitteeType, CommitteeConfig> = {
     description: "策劃及管理課外活動、學會及聯課活動，豐富學生校園生活。",
     colorVar:    "eca",
     tools: [
+      { label: "活動管理",     description: "建立活動、貼上學生名單、追蹤出席", href: "/teacher/activities" },
       { label: "活動報名",     description: "管理課外活動及學會報名" },
       { label: "活動出席記錄", description: "記錄學生課外活動出席情況" },
       { label: "比賽及獎項",   description: "登記校外比賽及學生獎項"   },

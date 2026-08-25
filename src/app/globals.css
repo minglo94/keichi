@@ -99,6 +99,9 @@
   .committee-border-eca {
     border-left: 3px solid var(--color-eca);
   }
+  .committee-border-none {
+    border-left: 3px solid var(--color-border);
+  }
 
   /* Sidebar nav item */
   .nav-item {

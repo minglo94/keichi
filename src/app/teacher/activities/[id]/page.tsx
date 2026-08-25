@@ -321,9 +321,17 @@ export default function ActivityDetailPage() {
 
   async function sendAlert() {
     setAlerting(true)
-    await fetch(`/api/activities/${id}/alert`, { method: "POST" })
+    const res = await fetch(`/api/activities/${id}/alert`, { method: "POST" })
     setAlerting(false)
+    if (!res.ok) {
+      // Don't show success for a send that reached nobody.
+      const d = await res.json().catch(() => ({}))
+      window.alert(d?.error ?? `發送失敗 (${res.status})`)
+      return
+    }
+    const { alerted } = await res.json().catch(() => ({ alerted: 0 }))
     setAlertDone(true)
+    window.alert(`已發送提醒給 ${alerted} 位學生。`)
   }
 
   function handleAssign(assigned: any, newClashes: Clash[]) {

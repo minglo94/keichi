@@ -1,4 +1,4 @@
-// Shared types + helpers for the PA-announcement (早會廣播) module.
+// Shared types + helpers for the PA-announcement (宣佈訊息) module.
 
 export type Priority      = "NORMAL" | "IMPORTANT" | "URGENT"
 export type Status        = "DRAFT" | "PUBLISHED" | "ARCHIVED"

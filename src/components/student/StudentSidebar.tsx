@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { useState, type ComponentType } from "react"
 import { signOut } from "next-auth/react"
 import Image from "next/image"
+import { NotificationBell } from "@/components/NotificationBell"
 
 type User = {
   name?:  string | null
@@ -43,7 +44,7 @@ export function StudentSidebar({ user }: { user: User }) {
       style={{ background: "var(--color-surface)", borderRight: "1px solid var(--color-border)" }}
     >
       <div className="px-5 pt-6 pb-4 flex items-center gap-2.5">
-        <Image src="/logo-placeholder.svg" alt="基智行政平台 Logo" width={32} height={32} priority />
+        <Image src="/logo.png" alt="基智行政平台 Logo" width={32} height={32} priority />
         <div className="flex items-end gap-1.5">
           <span className="text-xl font-semibold tracking-tight" style={{ color: "var(--color-ink-900)" }}>
             基智行政平台
@@ -91,6 +92,7 @@ export function StudentSidebar({ user }: { user: User }) {
             </p>
             <p className="text-[10px] truncate" style={{ color: "var(--color-ink-400)" }}>學生</p>
           </div>
+          <NotificationBell />
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="text-caption shrink-0 hover:opacity-70 transition-opacity"

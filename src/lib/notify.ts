@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { pusherServer, channels } from "@/lib/pusher"
+import { sendPushToUsers } from "@/lib/web-push"
 
 export type NotificationType = "ANNOUNCEMENT" | "DOC_APPROVAL" | "BEHAVIOR" | "GENERAL"
 
@@ -12,9 +13,11 @@ export type NotifyInput = {
 }
 
 /**
- * Persist an in-app notification and push a real-time `notification` event to
- * the recipient's private channel. Best-effort: DB and Pusher failures are
- * swallowed so a notification never breaks the triggering request.
+ * Persist an in-app notification, push a real-time `notification` event to the
+ * recipient's private channel (updates the bell in an open tab), and send a
+ * Web Push notification to their installed PWA devices (reaches them when the
+ * app is closed). Best-effort: DB, Pusher and push failures are all swallowed
+ * so a notification never breaks the triggering request.
  */
 export async function notify(input: NotifyInput): Promise<void> {
   try {
@@ -35,6 +38,12 @@ export async function notify(input: NotifyInput): Promise<void> {
         body:  n.body,
         link:  n.link,
         createdAt: n.createdAt,
+      })
+    } catch {}
+    // OS-level push to installed PWAs (works when the app is closed).
+    try {
+      await sendPushToUsers([input.userId], {
+        title: input.title, body: input.body, link: input.link,
       })
     } catch {}
   } catch (err) {
@@ -63,6 +72,10 @@ export async function notifyMany(userIds: string[], base: Omit<NotifyInput, "use
         })
       )
     )
+    // OS-level push to installed PWAs (works when the app is closed).
+    try {
+      await sendPushToUsers(userIds, { title: base.title, body: base.body, link: base.link })
+    } catch {}
   } catch (err) {
     console.error("notifyMany failed:", err)
   }

@@ -17,7 +17,7 @@
  */
 
 import { prisma } from "@/lib/prisma"
-import type { CalendarEvent, GoogleCalendarConnection } from "@prisma/client"
+import type { CalendarEvent, GoogleCalendarConnection, CommitteeType } from "@prisma/client"
 
 // ─── Constants ───────────────────────────────────────────────────
 
@@ -562,6 +562,135 @@ export async function backfillUnsyncedEvents(userId: string): Promise<number> {
   }
 
   return count
+}
+
+// ─── Committee-wide fan-out ───────────────────────────────────────
+// Events with a committee are pushed into every OTHER relevant connected
+// teacher's own calendar, not just the author's:
+//   - SCHOOL (學校活動及假期): every connected teacher (it's school-wide)
+//   - any other committee (ADMIN/DISCIPLINE/IT/CURRICULUM/ECA): connected
+//     members of that committee, per CommitteeRole — i.e. your committee
+//     colleagues, not the whole school
+// Events with no committee (全校, ADMIN-only) do NOT fan out — only the
+// author's own calendar gets them, same as before.
+// One event can therefore have many Google-side copies — tracked in
+// CalendarEventGoogleSync (one row per non-author recipient). The author's
+// own copy keeps using the existing CalendarEvent.googleEventId column.
+
+async function connectedUserIds(excludeUserId?: string): Promise<string[]> {
+  const conns = await prisma.googleCalendarConnection.findMany({
+    where:  excludeUserId ? { userId: { not: excludeUserId } } : {},
+    select: { userId: true },
+  })
+  return conns.map((c) => c.userId)
+}
+
+/** Connected users who should receive a copy of an event in this committee, excluding the author. */
+async function committeeFanOutTargets(committee: CommitteeType, excludeUserId: string): Promise<string[]> {
+  if (committee === "SCHOOL") return connectedUserIds(excludeUserId)
+
+  const members = await prisma.committeeRole.findMany({
+    where:  { committee, userId: { not: excludeUserId } },
+    select: { userId: true },
+  })
+  if (members.length === 0) return []
+
+  const memberIds = new Set(members.map((m) => m.userId))
+  const connected = await connectedUserIds(excludeUserId)
+  return connected.filter((id) => memberIds.has(id))
+}
+
+async function pushEventTo(userId: string, event: CalendarEvent): Promise<void> {
+  const conn = await prisma.googleCalendarConnection.findUnique({ where: { userId } })
+  if (!conn) return
+
+  const existing = await prisma.calendarEventGoogleSync.findUnique({
+    where: { calendarEventId_userId: { calendarEventId: event.id, userId } },
+  })
+
+  const result = await gcalFetch(
+    userId,
+    existing
+      ? `/calendars/${encodeURIComponent(conn.googleCalendarId)}/events/${existing.googleEventId}`
+      : `/calendars/${encodeURIComponent(conn.googleCalendarId)}/events`,
+    { method: existing ? "PATCH" : "POST", body: JSON.stringify(toGCalPayload(event)) },
+  )
+  if (!result.ok) return
+
+  if (existing) {
+    await prisma.calendarEventGoogleSync.update({
+      where: { id: existing.id },
+      data:  { syncedAt: new Date() },
+    })
+  } else {
+    await prisma.calendarEventGoogleSync.create({
+      data: { calendarEventId: event.id, userId, googleEventId: result.data.id },
+    })
+  }
+}
+
+/**
+ * Pushes a newly created/updated committee event to every OTHER relevant
+ * connected teacher's calendar (skips the author — their own copy is
+ * handled by createGoogleEvent/updateGoogleEvent as usual). No-op for
+ * events with no committee.
+ */
+export async function fanOutCommitteeEvent(event: CalendarEvent): Promise<void> {
+  if (!event.committee) return
+  const targets = await committeeFanOutTargets(event.committee, event.authorId)
+  await Promise.all(targets.map((userId) => pushEventTo(userId, event)))
+}
+
+/**
+ * Removes a committee event's fanned-out copies from every recipient
+ * teacher's calendar — used when the event is deleted, or its committee
+ * changes (the old audience should no longer see it).
+ * When the CalendarEvent row is already gone (deleted, cascading away its
+ * CalendarEventGoogleSync rows), pass the previously-fetched `syncs` so we
+ * still know which Google events to clean up.
+ */
+export async function retractCommitteeEvent(
+  calendarEventId: string,
+  syncs?: { userId: string; googleEventId: string }[],
+): Promise<void> {
+  const rows = syncs ?? await prisma.calendarEventGoogleSync.findMany({
+    where:  { calendarEventId },
+    select: { userId: true, googleEventId: true },
+  })
+
+  await Promise.all(rows.map(async (s) => {
+    const conn = await prisma.googleCalendarConnection.findUnique({
+      where: { userId: s.userId }, select: { googleCalendarId: true },
+    })
+    if (conn) await deleteGoogleEvent(s.userId, s.googleEventId, conn.googleCalendarId)
+  }))
+
+  // No-op if the CalendarEvent (and its cascade) is already gone.
+  await prisma.calendarEventGoogleSync.deleteMany({ where: { calendarEventId } }).catch(() => {})
+}
+
+/**
+ * Pushes every existing committee event relevant to a teacher (SCHOOL events,
+ * plus events for committees they're a member of; excluding events they
+ * authored themselves) into their calendar. Run on first connect and on a
+ * manual "Sync Now", so teachers get events that already existed rather than
+ * only ones created/edited after the fan-out went live. Idempotent — an event
+ * already pushed to this user is PATCHed in place, not duplicated.
+ */
+export async function backfillCommitteeEventsForUser(userId: string): Promise<number> {
+  const memberships = await prisma.committeeRole.findMany({
+    where:  { userId },
+    select: { committee: true },
+  })
+  const committees = Array.from(new Set<CommitteeType>(["SCHOOL", ...memberships.map((m) => m.committee)]))
+
+  const events = await prisma.calendarEvent.findMany({
+    where: { committee: { in: committees }, authorId: { not: userId } },
+  })
+  for (const event of events) {
+    await pushEventTo(userId, event)
+  }
+  return events.length
 }
 
 /**

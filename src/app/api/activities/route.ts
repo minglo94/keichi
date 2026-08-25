@@ -12,7 +12,10 @@ const createSchema = z.object({
   location:    z.string().max(200).optional(),
   committee:   z.enum(["ADMIN", "DISCIPLINE", "IT", "CURRICULUM", "ECA"]).optional(),
   activityType: z.enum(["ECA", "ACADEMIC"]).optional(),
-  studentList: z.string().optional(), // Raw text from Excel paste
+  studentList: z.string().optional(), // Legacy: raw text, one name/email per line
+  // Preferred: already-resolved student account ids from the roster grid
+  // (see /api/students/resolve). Takes precedence over studentList.
+  studentIds:  z.array(z.string()).max(500).optional(),
 })
 
 export async function GET(req: NextRequest) {
@@ -64,8 +67,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 400 })
   }
 
-  const { studentList } = data
-  
+  const { studentList, studentIds } = data
+
   const activity = await prisma.activity.create({
     data: {
       title:       data.title,
@@ -83,20 +86,25 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  // Process student list if provided
-  if (studentList) {
-    const lines = studentList.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
-    if (lines.length > 0) {
-      const resolvedUsers = await prisma.user.findMany({
-        where: {
-          OR: [
-            { email: { in: lines } },
-            { name:  { in: lines } }
-          ],
-          role: "STUDENT"
-        },
-        select: { id: true, name: true }
-      })
+  // Assign students. Prefer studentIds (already resolved by the roster grid
+  // via /api/students/resolve); fall back to the legacy name/email text list.
+  if (studentIds?.length || studentList) {
+    {
+      const resolvedUsers = studentIds?.length
+        ? await prisma.user.findMany({
+            where:  { id: { in: studentIds }, role: "STUDENT" },
+            select: { id: true, name: true },
+          })
+        : await prisma.user.findMany({
+            where: {
+              OR: [
+                { email: { in: studentList!.split(/\r?\n/).map(l => l.trim()).filter(Boolean) } },
+                { name:  { in: studentList!.split(/\r?\n/).map(l => l.trim()).filter(Boolean) } },
+              ],
+              role: "STUDENT",
+            },
+            select: { id: true, name: true },
+          })
 
       if (resolvedUsers.length > 0) {
         const targetStudentIds = resolvedUsers.map(u => u.id)

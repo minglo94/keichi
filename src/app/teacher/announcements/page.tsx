@@ -78,6 +78,22 @@ export default function AnnouncementsPage() {
 
   useEffect(() => { load() }, [])
 
+  // Deep link from the dashboard's 今日公告 card (/teacher/announcements#ann-<id>):
+  // once the list has rendered, scroll that announcement into view and flash it
+  // so it's obvious which one was clicked.
+  useEffect(() => {
+    if (loading || announcements.length === 0) return
+    const id = window.location.hash.slice(1)
+    if (!id) return
+    const el = document.getElementById(id)
+    if (!el) return
+    el.scrollIntoView({ behavior: "smooth", block: "center" })
+    el.style.transition = "box-shadow .3s"
+    el.style.boxShadow  = "0 0 0 3px var(--color-accent)"
+    const t = setTimeout(() => { el.style.boxShadow = "" }, 2000)
+    return () => clearTimeout(t)
+  }, [loading, announcements])
+
   async function publish(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
@@ -310,7 +326,7 @@ export default function AnnouncementsPage() {
       ) : (
         <ul className="space-y-3">
           {announcements.map((ann) => (
-            <li key={ann.id} className="card p-5">
+            <li key={ann.id} id={`ann-${ann.id}`} className="card p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">

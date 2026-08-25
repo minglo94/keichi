@@ -10,7 +10,7 @@ const schema = z.object({
   query: z.string().min(1).max(500),
 })
 
-// Natural-language Q&A over PA-announcement (早會廣播) history.
+// Natural-language Q&A over PA-announcement (宣佈訊息) history.
 // Retrieve-then-answer: stuff the most recent announcements into context and
 // let the provider-switchable LLM answer grounded on them.
 export async function POST(req: NextRequest) {
@@ -52,11 +52,11 @@ export async function POST(req: NextRequest) {
 
   const answer = await completeLLM(
     "claude",
-    [{ role: "user", content: `問題：${query}\n\n以下是早會廣播公告記錄：\n\n${context}` }],
+    [{ role: "user", content: `問題：${query}\n\n以下是宣佈訊息記錄：\n\n${context}` }],
     {
       system:
-        "你是學校早會廣播公告的查詢助理。只根據下方提供的公告記錄，用繁體中文回答老師的問題。" +
-        "若記錄中找不到答案，請直接說明沒有相關公告，切勿虛構。回答簡潔，並在適用時註明公告日期。",
+        "你是學校宣佈訊息的查詢助理。只根據下方提供的宣佈記錄，用繁體中文回答老師的問題。" +
+        "若記錄中找不到答案，請直接說明沒有相關宣佈，切勿虛構。回答簡潔，並在適用時註明宣佈日期。",
       maxTokens: 800,
     }
   )
