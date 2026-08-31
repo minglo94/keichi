@@ -27,9 +27,6 @@ export const COMMITTEE_GROUPS: { division: string; items: string[] }[] = [
     division: "I 管理與組織",
     items: [
       "家長教師會",
-      "協理教職員會議",
-      "協理學校優化委員會",
-      "協理風險及危機處理委員會",
       "學校安全及健康委員會",
       "人力資源委員會",
       "總務委員會",
@@ -39,7 +36,6 @@ export const COMMITTEE_GROUPS: { division: string; items: string[] }[] = [
   {
     division: "II 課程及學與教",
     items: [
-      "校友會",
       "專業發展及教育研究委員會",
       "學校自評及發展委員會",
       "教務及考評委員會",
@@ -52,8 +48,6 @@ export const COMMITTEE_GROUPS: { division: string; items: string[] }[] = [
   {
     division: "III 學生成長及支援",
     items: [
-      "學生會",
-      "協理校政委員會",
       "社會服務委員會",
       "訓育委員會",
       "生涯規劃委員會",
@@ -64,21 +58,19 @@ export const COMMITTEE_GROUPS: { division: string; items: string[] }[] = [
   {
     division: "IV 校風及學生成就",
     items: [
-      "協理財務及資產管理委員會",
-      "協理國安教育委員會",
       "國民教育委員會",
       "價值觀教育委員會",
       "跨課程語文學習委員會",
       "境外交流委員會",
       "學校推廣委員會",
       "學生獎勵委員會",
-      "資訊科技及圖書館委員會",
+      "圖書館委員會",
+      "數字教育委員會",
     ],
   },
 ]
 
-// 協理學校優化委員會 and 學習支援委員會 each hang off two divisions on the
-// chart; the flat list carries one entry per committee.
+// Deduped in case a committee is ever listed under two divisions.
 export const COMMITTEES: string[] = Array.from(
   new Set(COMMITTEE_GROUPS.flatMap((g) => g.items)),
 )
