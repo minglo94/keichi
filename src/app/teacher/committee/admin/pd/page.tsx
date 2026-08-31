@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { StaffPicker } from "@/components/teacher/StaffPicker"
 import { DEFAULT_PERIODS } from "@/lib/school-periods"
+import { COMMITTEES, SUBJECTS } from "@/lib/school-org"
 
 type Staff = { id: string; name: string | null; nameEn: string | null; email: string | null; image: string | null }
 
@@ -21,6 +22,11 @@ type Application = {
   rejectionReason: string | null; reviewedAt: string | null
   teacher: { id: string; name: string | null }
   reviewedBy: { id: string; name: string | null } | null
+}
+
+type Profile = {
+  id: string; name: string | null; nameEn: string | null; email: string | null
+  departments: string[]; committees: string[]; pdCount: number
 }
 
 type Period      = { period: number | null; label: string | null; startTime: string; endTime: string }
@@ -156,6 +162,7 @@ function ApplyTab({ staff, inputCls, inputStyle }: {
       <div>
         <label className="text-caption block mb-1" style={{ color: "var(--color-ink-700)" }}>教師 *</label>
         <StaffPicker staff={staff} selectedId={teacherId} onSelect={setTeacherId} placeholder="搜尋教師姓名…" />
+        <TeacherCard teacherId={teacherId} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -213,6 +220,12 @@ function ApplyTab({ staff, inputCls, inputStyle }: {
           )}
         </div>
       )}
+
+      <SuggestPanel
+        startDate={startDate} endDate={multiDay ? endDate : startDate}
+        startTime={startTime} endTime={endTime}
+        selectedId={teacherId} onPick={setTeacherId}
+        inputCls={inputCls} inputStyle={inputStyle} />
 
       {msg && <p className="text-caption" style={{ color: "var(--color-ink-500)" }}>{msg}</p>}
 
@@ -357,7 +370,7 @@ function RecordsTab() {
 // ─── 板面 2：資料 ────────────────────────────────────────────
 function InfoTab({ staff }: { staff: Staff[] }) {
   const [teacherId, setTeacherId] = useState("")
-  const [data, setData] = useState<{ term: string | null; matched: string | null; lessons: any[]; periods: Period[] } | null>(null)
+  const [data, setData] = useState<{ term: string | null; matched: string | null; lessons: any[]; periods: Period[]; profile?: Profile } | null>(null)
   const [docs, setDocs] = useState<DocLink[]>([])
   const [openDoc, setOpenDoc] = useState<DocLink | null>(null)
 
@@ -378,6 +391,7 @@ function InfoTab({ staff }: { staff: Staff[] }) {
       <div className="card p-5">
         <h3 className="text-h3 mb-2">教師上課表</h3>
         <StaffPicker staff={staff} selectedId={teacherId} onSelect={setTeacherId} placeholder="搜尋教師姓名…" />
+        {data?.profile && <ProfileCard p={data.profile} matched={data.matched} term={data.term} />}
 
         {data && (
           data.matched ? (
@@ -649,6 +663,218 @@ function SettingsTab({ inputCls, inputStyle }: { inputCls: string; inputStyle: R
           {saving ? "儲存中…" : "儲存設定"}
         </button>
         {msg && <span className="text-caption" style={{ color: "var(--color-ink-500)" }}>{msg}</span>}
+      </div>
+    </div>
+  )
+}
+
+// 教師資料卡 — who this teacher is, beyond the name on the picker.
+//
+// The 時間表 line is here on purpose: an unresolved name is the one thing that
+// silently makes the whole clash check meaningless, and this puts it in front
+// of you at the moment you pick someone rather than after you file.
+function TeacherCard({ teacherId }: { teacherId: string }) {
+  const [data, setData] = useState<{ matched: string | null; term: string | null; profile?: Profile } | null>(null)
+
+  useEffect(() => {
+    if (!teacherId) { setData(null); return }
+    let cancelled = false
+    fetch(`/api/pd/timetable?teacherId=${teacherId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (!cancelled) setData(d) })
+    return () => { cancelled = true }
+  }, [teacherId])
+
+  if (!data?.profile) return null
+  return <ProfileCard p={data.profile} matched={data.matched} term={data.term} />
+}
+
+function Chips({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div className="flex items-baseline gap-2 flex-wrap">
+      <span className="text-caption shrink-0" style={{ color: "var(--color-ink-400)" }}>{label}</span>
+      {items.length === 0 ? (
+        <span className="text-caption" style={{ color: "var(--color-ink-300)" }}>未填寫</span>
+      ) : items.map((x) => (
+        <span key={x} className="text-caption px-1.5 py-0.5 rounded-pill"
+          style={{ background: "var(--color-surface-2)", color: "var(--color-ink-600)" }}>{x}</span>
+      ))}
+    </div>
+  )
+}
+
+function ProfileCard({ p, matched, term }: { p: Profile; matched: string | null; term: string | null }) {
+  return (
+    <div className="mt-2 p-3 rounded-input space-y-1.5" style={{ background: "var(--color-surface-2)" }}>
+      <Chips label="科組" items={p.departments} />
+      <Chips label="委員會" items={p.committees} />
+      <div className="flex items-baseline gap-3 flex-wrap">
+        <span className="text-caption" style={{ color: "var(--color-ink-400)" }}>時間表</span>
+        {matched ? (
+          <span className="text-caption" style={{ color: "var(--color-curriculum)" }}>
+            ✓ {matched}{term ? `（學期 ${term}）` : ""}
+          </span>
+        ) : (
+          <span className="text-caption" style={{ color: "var(--color-admin)" }}>
+            ⚠ 找不到　
+            <Link href="/teacher/admin/teachers" className="underline">教師資料</Link>
+          </span>
+        )}
+        <span className="text-caption" style={{ color: "var(--color-ink-400)" }}>
+          本學年已申請 {p.pdCount} 次
+        </span>
+      </div>
+      {(p.departments.length === 0 && p.committees.length === 0) && (
+        <p className="text-caption" style={{ color: "var(--color-ink-300)" }}>
+          科組及委員會可喺 <Link href="/teacher/admin/teachers" className="underline">教師資料</Link> 填寫。
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ─── 建議人選 ────────────────────────────────────────────────
+type Candidate = {
+  id: string; name: string | null; nameEn: string | null; email: string | null
+  subjects: string[]; committees: string[]
+  resolved: string | null; clashDates: number; lessons: string[]
+  notConfigured: boolean; pdCount: number
+}
+type Suggestion = {
+  dates: string[]; notConfigured: boolean; term: string | null
+  free: Candidate[]; partial: Candidate[]; unknown: Candidate[]
+  missingProfile: number; total: number
+}
+
+/**
+ * Turns the 申請 question round: instead of "is this teacher free?", "who is
+ * free?" — filtered by 科組 or 委員會. It only suggests; picking a row just
+ * fills the form above, and the application is still filed and approved the
+ * normal way.
+ */
+function SuggestPanel({ startDate, endDate, startTime, endTime, selectedId, onPick, inputCls, inputStyle }: {
+  startDate: string; endDate: string; startTime: string; endTime: string
+  selectedId: string; onPick: (id: string) => void
+  inputCls: string; inputStyle: React.CSSProperties
+}) {
+  const [open,    setOpen]    = useState(false)
+  const [dept,    setDept]    = useState("")
+  const [cmte,    setCmte]    = useState("")
+  const [data,    setData]    = useState<Suggestion | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [err,     setErr]     = useState<string | null>(null)
+
+  const search = useCallback(async () => {
+    if (!startDate || !startTime || !endTime) return
+    setLoading(true); setErr(null)
+    try {
+      const res = await fetch("/api/pd/suggest", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startDate, endDate, startTime, endTime, department: dept || undefined, committee: cmte || undefined }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) { setErr(d?.error ?? `搜尋失敗 (${res.status})`); setData(null) }
+      else setData(d)
+    } catch { setErr("搜尋失敗，請重試。") }
+    setLoading(false)
+  }, [startDate, endDate, startTime, endTime, dept, cmte])
+
+  // Re-run when the window or filter changes, but only while the panel is open.
+  useEffect(() => {
+    if (!open) return
+    const t = setTimeout(search, 300)
+    return () => clearTimeout(t)
+  }, [open, search])
+
+  return (
+    <div className="rounded-input" style={{ border: "1px solid var(--color-border)" }}>
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-3 py-2 text-caption font-medium"
+        style={{ color: "var(--color-admin)" }}>
+        <span>建議人選（邊位喺呢個時段冇課）</span>
+        <span style={{ color: "var(--color-ink-300)" }}>{open ? "收起" : "展開"}</span>
+      </button>
+
+      {open && (
+        <div className="px-3 pb-3 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <select value={dept} onChange={(e) => setDept(e.target.value)} className={inputCls} style={inputStyle}>
+              <option value="">所有科組</option>
+              {SUBJECTS.map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+            <select value={cmte} onChange={(e) => setCmte(e.target.value)} className={inputCls} style={inputStyle}>
+              <option value="">所有委員會</option>
+              {COMMITTEES.map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+          </div>
+
+          {err && <p className="text-caption" style={{ color: "var(--color-discipline)" }}>{err}</p>}
+          {loading && <p className="text-caption" style={{ color: "var(--color-ink-400)" }}>搜尋中…</p>}
+
+          {data && !loading && (
+            <>
+              {data.notConfigured ? (
+                <p className="text-caption" style={{ color: "var(--color-admin)" }}>
+                  ⚠ 尚未設定節次時間，未能檢查（請先到「設定」填寫）。
+                </p>
+              ) : (
+                <>
+                  <Bucket title="全程冇課" tone="var(--color-curriculum)" items={data.free}
+                    selectedId={selectedId} onPick={onPick} />
+                  <Bucket title="部分時間有課" tone="var(--color-discipline)" items={data.partial}
+                    selectedId={selectedId} onPick={onPick} showLessons />
+                  {data.unknown.length > 0 && (
+                    <Bucket title="未能確認（找不到時間表）" tone="var(--color-admin)" items={data.unknown}
+                      selectedId={selectedId} onPick={onPick} />
+                  )}
+                </>
+              )}
+
+              {(dept || cmte) && data.missingProfile > 0 && (
+                <p className="text-caption" style={{ color: "var(--color-ink-400)" }}>
+                  有 {data.missingProfile} 位教師未填科組／委員會，可能未列入篩選結果 —{" "}
+                  <Link href="/teacher/admin/teachers" className="underline">教師資料</Link>
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Bucket({ title, tone, items, selectedId, onPick, showLessons }: {
+  title: string; tone: string; items: Candidate[]
+  selectedId: string; onPick: (id: string) => void; showLessons?: boolean
+}) {
+  if (items.length === 0) return null
+  return (
+    <div>
+      <p className="text-caption font-medium mb-1" style={{ color: tone }}>{title}（{items.length}）</p>
+      <div className="space-y-1">
+        {items.slice(0, 30).map((c) => (
+          <button key={c.id} type="button" onClick={() => onPick(c.id)}
+            className="w-full text-left px-2 py-1.5 rounded-input flex items-baseline gap-2 flex-wrap hover:bg-[var(--color-surface-2)]"
+            style={{ background: selectedId === c.id ? "var(--color-surface-2)" : "transparent" }}>
+            <span className="text-body" style={{ color: "var(--color-ink-900)" }}>{c.name ?? c.email}</span>
+            {c.subjects.slice(0, 3).map((x) => (
+              <span key={x} className="text-caption px-1.5 py-0.5 rounded-pill"
+                style={{ background: "var(--color-surface-2)", color: "var(--color-ink-500)" }}>{x}</span>
+            ))}
+            <span className="text-caption ml-auto shrink-0" style={{ color: "var(--color-ink-400)" }}>
+              本學年 {c.pdCount} 次
+            </span>
+            {showLessons && c.lessons.length > 0 && (
+              <span className="w-full text-caption" style={{ color: "var(--color-ink-400)" }}>
+                {c.lessons.slice(0, 3).join("、")}{c.lessons.length > 3 ? ` …另有 ${c.lessons.length - 3} 節` : ""}
+              </span>
+            )}
+          </button>
+        ))}
+        {items.length > 30 && (
+          <p className="text-caption px-2" style={{ color: "var(--color-ink-300)" }}>…另有 {items.length - 30} 位</p>
+        )}
       </div>
     </div>
   )
