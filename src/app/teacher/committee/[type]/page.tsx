@@ -49,6 +49,7 @@ const CONFIGS: Record<CommitteeType, CommitteeConfig> = {
       { label: "活動文件",   description: "一鍵生成通告、出席紀錄及 FAD8 學生學習紀錄 (ZIP)", href: "/teacher/committee/admin/activity-docs" },
       { label: "FAD8 年度彙編", description: "將全年已批核通告按學生整理成 FAD8 紀錄，可匯出 Excel", href: "/teacher/committee/admin/fad8" },
       { label: "教師進修", description: "登記及批核教師進修，自動對照時間表、假期及考試檢查衝突", href: "/teacher/committee/admin/pd" },
+      { label: "共同空堂", description: "按科組、委員會或指定教師，搵大家都冇課嘅節次，方便約開會", href: "/teacher/committee/admin/free-slots" },
       { label: "KCquotation 報價", description: "填寫按口頭報價採購表格、生成 DOCX，支援 AI OCR 預填", href: "/teacher/committee/admin/quotation" },
       { label: "設施預約",   description: "電腦室、特別室及禮堂預約", href: "/teacher/committee/admin/booking" },
       { label: "費用結算",   description: "班費及活動費用記錄"   },

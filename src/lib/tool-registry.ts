@@ -19,6 +19,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { key: "/teacher/committee/admin/booking",        href: "/teacher/committee/admin/booking",        label: "設施預約",      committee: "ADMIN",      colorVar: "admin"      },
   { key: "/teacher/committee/admin/activity-docs", href: "/teacher/committee/admin/activity-docs", label: "活動文件",      committee: "ADMIN",      colorVar: "admin"      },
   { key: "/teacher/committee/admin/pd",            href: "/teacher/committee/admin/pd",            label: "教師進修",      committee: "ADMIN",      colorVar: "admin"      },
+  { key: "/teacher/committee/admin/free-slots",    href: "/teacher/committee/admin/free-slots",    label: "共同空堂",      committee: "ADMIN",      colorVar: "admin"      },
   // 訓育
   { key: "/teacher/committee/discipline/behavior",  href: "/teacher/committee/discipline/behavior",  label: "行為記錄",      committee: "DISCIPLINE", colorVar: "discipline" },
   // 資訊科技

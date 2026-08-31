@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { pdSession } from "@/lib/pd-auth"
+import { auth } from "@/lib/auth"
+import { isTeacherOrAdmin } from "@/lib/roles"
 import { commonFreeSlots } from "@/lib/free-slots"
 import { z } from "zod"
 
 // POST — 共同空堂 for an explicit list of teachers, or for everyone matching a
-// 科組／委員會 filter. 科組 falls back to the subject each teacher actually
+// 科組／委員會 filter.
+//
+// Open to any teacher, not just admins: colleagues' timetables are already
+// readable through Keida's timetable_query, and the point of the tool is that
+// anyone arranging a meeting can use it. 科組 falls back to the subject each teacher actually
 // teaches on the timetable, since 教師資料 is new and mostly unfilled.
 const schema = z.object({
   teacherIds: z.array(z.string()).max(40).optional(),
@@ -14,8 +19,10 @@ const schema = z.object({
 })
 
 export async function POST(req: NextRequest) {
-  const session = await pdSession()
-  if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await auth()
+  if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   const d = schema.parse(await req.json())
   const dept = d.department?.trim()
