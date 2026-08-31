@@ -92,12 +92,60 @@ export async function getAllTeachers(term: string): Promise<string[]> {
   return rows.map((r) => r.teacherName)
 }
 
+/** SchoolSetting key holding the term every lookup should use. */
+export const ACTIVE_TERM_KEY = "timetable.activeTerm"
+
+/**
+ * The term all timetable lookups run against.
+ *
+ * This used to be `orderBy: { term: "desc" }` — a *string* sort over a
+ * free-text field. That quietly broke as soon as a term was named in a
+ * different style: "2026-2027" sorts BEFORE "2526" ('0' < '5' at the second
+ * character), so uploading next year's timetable left the old one in force and
+ * both 教師進修 and Ask Keida kept answering from it.
+ *
+ * The term in use is now an explicit setting, written whenever a timetable is
+ * uploaded and changeable by an admin.
+ */
 export async function getLatestTerm(): Promise<string | null> {
+  const setting = await prisma.schoolSetting.findUnique({ where: { key: ACTIVE_TERM_KEY } })
+  const pinned  = setting?.value?.trim()
+  if (pinned) {
+    // Only trust it while it still has rows — a deleted term must not silently
+    // make every teacher look free.
+    const has = await prisma.agentTimetable.findFirst({ where: { term: pinned }, select: { id: true } })
+    if (has) return pinned
+  }
+
+  // Nothing pinned (or it was deleted): fall back to the only ordering
+  // available, and let the admin correct it on the 時間表 tab.
   const row = await prisma.agentTimetable.findFirst({
     orderBy: { term: "desc" },
     select:  { term: true },
   })
   return row?.term ?? null
+}
+
+export async function setActiveTerm(term: string): Promise<void> {
+  await prisma.schoolSetting.upsert({
+    where:  { key: ACTIVE_TERM_KEY },
+    create: { key: ACTIVE_TERM_KEY, value: term },
+    update: { value: term },
+  })
+}
+
+/** Every term held in the timetable, with how much data each has. */
+export async function listTerms(): Promise<{ term: string; rows: number; teachers: number }[]> {
+  const grouped = await prisma.agentTimetable.groupBy({
+    by:     ["term"],
+    _count: { _all: true },
+  })
+  const out = await Promise.all(grouped.map(async (g) => ({
+    term:     g.term,
+    rows:     g._count._all,
+    teachers: (await getAllTeachers(g.term)).length,
+  })))
+  return out.sort((a, b) => b.term.localeCompare(a.term))
 }
 
 export interface FreeSlot { day: number; period: number }

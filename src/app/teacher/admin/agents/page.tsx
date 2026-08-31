@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { AgentMarkdown } from "@/components/teacher/AgentMarkdown"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -294,9 +294,45 @@ function TimetableTab() {
   // (React error #31: objects are not valid as a React child).
   type ParseError = { line: number; reason: string }
   const [result,   setResult]   = useState<{ imported: number; errors: ParseError[] } | null>(null)
+  type TermInfo = { term: string; rows: number; teachers: number }
+  const [terms,  setTerms]  = useState<TermInfo[]>([])
+  const [active, setActive] = useState<string | null>(null)
+  const [termMsg, setTermMsg] = useState<string | null>(null)
   const [rejected, setRejected] = useState<ParseError[]>([])
   const [error,    setError]    = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const loadTerms = useCallback(async () => {
+    const res = await fetch("/api/agents/timetable/terms")
+    if (!res.ok) return
+    const d = await res.json()
+    setTerms(d.terms ?? [])
+    setActive(d.active ?? null)
+  }, [])
+
+  useEffect(() => { loadTerms() }, [loadTerms])
+
+  async function makeActive(t: string) {
+    setTermMsg(null)
+    const res = await fetch("/api/agents/timetable/terms", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ term: t }),
+    })
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok) { setTermMsg(d?.error ?? `未能切換 (${res.status})`); return }
+    setActive(d.active)
+    setTermMsg(`已改用「${d.active}」`)
+  }
+
+  async function removeTerm(t: string) {
+    if (!confirm(`確定刪除「${t}」的所有時間表資料？此操作不可復原。`)) return
+    setTermMsg(null)
+    const res = await fetch(`/api/agents/timetable/terms?term=${encodeURIComponent(t)}`, { method: "DELETE" })
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok) { setTermMsg(d?.error ?? `刪除失敗 (${res.status})`); return }
+    setTermMsg(`已刪除 ${d.deleted} 筆記錄`)
+    loadTerms()
+  }
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
@@ -323,6 +359,7 @@ function TimetableTab() {
     const data = await res.json()
     if (res.ok) {
       setResult(data); setRejected([])
+      loadTerms()
     } else {
       setError(data?.error ?? `錯誤 ${res.status}`)
       // A 400 carries the parse errors too; showing them is far more useful
@@ -340,6 +377,42 @@ function TimetableTab() {
       <p className="text-caption mb-6" style={{ color: "var(--color-ink-400)" }}>
         上載教師時間表 CSV，讓校務行政助手 Andy 可以查詢共同空堂及代課人選。
       </p>
+
+      {/* Which term the rest of the app answers from. The active term used to
+          be inferred from a string sort over free-text names, so a newly
+          uploaded timetable could silently fail to take effect. */}
+      <div className="card p-4 mb-6">
+        <p className="text-caption font-medium mb-2" style={{ color: "var(--color-ink-700)" }}>已儲存的學期</p>
+        {terms.length === 0 ? (
+          <p className="text-caption" style={{ color: "var(--color-ink-400)" }}>尚未上載任何時間表。</p>
+        ) : (
+          <div className="space-y-1.5">
+            {terms.map((t) => (
+              <div key={t.term} className="flex items-center gap-2 flex-wrap">
+                <span className="text-body" style={{ color: "var(--color-ink-900)" }}>{t.term}</span>
+                <span className="text-caption" style={{ color: "var(--color-ink-400)" }}>
+                  {t.teachers} 位教師 · {t.rows} 筆
+                </span>
+                {t.term === active ? (
+                  <span className="text-caption px-2 py-0.5 rounded-pill"
+                    style={{ background: "var(--color-accent-soft, #ede9fe)", color: "var(--color-accent)" }}>
+                    現用
+                  </span>
+                ) : (
+                  <button type="button" onClick={() => makeActive(t.term)}
+                    className="text-caption" style={{ color: "var(--color-accent)" }}>設為現用</button>
+                )}
+                <button type="button" onClick={() => removeTerm(t.term)}
+                  className="text-caption ml-auto" style={{ color: "var(--color-discipline)" }}>刪除</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="text-caption mt-2" style={{ color: "var(--color-ink-400)" }}>
+          「現用」學期就是教師進修衝突檢查同 Ask Keida 查時間表時所用的資料。上載新時間表後會自動切換到該學期。
+        </p>
+        {termMsg && <p className="text-caption mt-1" style={{ color: "var(--color-ink-500)" }}>{termMsg}</p>}
+      </div>
 
       {/* Format guide */}
       <div className="card p-4 mb-6">

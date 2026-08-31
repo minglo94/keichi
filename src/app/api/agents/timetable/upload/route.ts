@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { isAdmin } from "@/lib/roles"
 import { prisma } from "@/lib/prisma"
-import { parseTimetableCsv } from "@/lib/agent-timetable"
+import { parseTimetableCsv, setActiveTerm } from "@/lib/agent-timetable"
 import { z } from "zod"
 
 const schema = z.object({ term: z.string().min(1).max(20), csv: z.string().min(1) })
@@ -28,5 +28,10 @@ export async function POST(req: NextRequest) {
     skipDuplicates: true,
   })
 
-  return NextResponse.json({ ok: true, imported: rows.length, errors })
+  // The timetable you just uploaded is the one you mean to use. Without this
+  // the active term was inferred from a string sort, so a term named in a new
+  // style ("2026-2027" vs "2526") never took effect.
+  await setActiveTerm(term)
+
+  return NextResponse.json({ ok: true, imported: rows.length, term, errors })
 }
