@@ -11,6 +11,8 @@ import {
   MAX_DAY,
   MAX_PERIOD,
 } from "@/lib/agent-timetable"
+import { commonFreeSlots, slotKey } from "@/lib/free-slots"
+import { COMMITTEES, SUBJECTS } from "@/lib/school-org"
 import { searchSchoolData, formatSearchResults } from "@/lib/agent-search"
 import { hybridSearch, formatRetrievedChunks } from "@/lib/knowledge-base"
 import { prisma } from "@/lib/prisma"
@@ -22,11 +24,12 @@ export async function runAgentTool(call: ToolCall, userId: string, role?: Role):
       case "timetable_query":       return await runTimetableQuery(call.params)
       case "teacher_lessons":       return await runTeacherLessons(call.params)
       case "free_teachers":         return await runFreeTeachers(call.params)
+      case "group_free_slots":      return await runGroupFreeSlots(call.params)
       case "search_school_data":    return await runSearchSchoolData(call.params, userId, role)
       case "search_knowledge_base": return await runSearchKnowledgeBase(call.params, userId)
       case "get_student_profile":   return await runGetStudentProfile(call.params)
       default:
-        return `工具「${call.tool}」不存在。可用工具：timetable_query（夾空堂）、free_teachers（找空堂老師）、search_school_data（搜尋學校紀錄：公告/行為記錄/行事曆/待辦/活動/AI 生成文件）、search_knowledge_base（語義搜尋已上載嘅教材/文件內容）、get_student_profile（學生學習概況：平均分/強弱範疇）。`
+        return `工具「${call.tool}」不存在。可用工具：timetable_query（夾空堂）、group_free_slots（夾委員會／科組開會時間）、free_teachers（找空堂老師）、search_school_data（搜尋學校紀錄：公告/行為記錄/行事曆/待辦/活動/AI 生成文件）、search_knowledge_base（語義搜尋已上載嘅教材/文件內容）、get_student_profile（學生學習概況：平均分/強弱範疇）。`
     }
   } catch (err) {
     console.error("[agent-tools]", call.tool, err)
@@ -159,6 +162,129 @@ async function runTimetableQuery(params: Record<string, unknown>): Promise<strin
     "",
     "請以上面嘅 Markdown 表格（星期 × 節次 grid）展示俾用戶，並列出建議時段。",
   ].join("\n")
+}
+
+/** Fuzzy-match a name the user typed against a fixed list (「圖書館」→「圖書館委員會」). */
+function matchFromList(query: string, list: readonly string[]): { matched?: string; candidates?: string[] } {
+  const q = query.trim()
+  if (!q) return {}
+  const exact = list.find((x) => x === q)
+  if (exact) return { matched: exact }
+  const partial = list.filter((x) => x.includes(q) || q.includes(x))
+  if (partial.length === 1) return { matched: partial[0] }
+  if (partial.length > 1)   return { candidates: partial }
+  return {}
+}
+
+// 「夾開會時間，圖書館委員會」 — find the members, then their common free slots.
+//
+// timetable_query already dovetails named teachers; this answers the question
+// the way people actually ask it, by naming a group instead of listing people.
+async function runGroupFreeSlots(params: Record<string, unknown>): Promise<string> {
+  const committeeQ  = typeof params.committee  === "string" ? params.committee.trim()  : ""
+  const departmentQ = typeof params.department === "string" ? params.department.trim() : ""
+  if (!committeeQ && !departmentQ) {
+    return "缺少 committee 或 department 參數。請問清楚用戶想夾邊個委員會／科組嘅時間。"
+  }
+
+  let committee = ""
+  if (committeeQ) {
+    const m = matchFromList(committeeQ, COMMITTEES)
+    if (m.candidates) return `「${committeeQ}」有多個匹配：${m.candidates.join("、")}，請問用戶係邊一個。`
+    if (!m.matched)   return `搵唔到叫「${committeeQ}」嘅委員會。現有委員會：${COMMITTEES.join("、")}。`
+    committee = m.matched
+  }
+
+  let department = ""
+  if (departmentQ) {
+    const m = matchFromList(departmentQ, SUBJECTS)
+    if (m.candidates) return `「${departmentQ}」有多個匹配：${m.candidates.join("、")}，請問用戶係邊一個。`
+    department = m.matched ?? departmentQ // an unlisted 科組 may still be stored on a teacher
+  }
+
+  const staff = await prisma.user.findMany({
+    where: {
+      role: { in: ["TEACHER", "ADMIN"] },
+      ...(committee  ? { committees:  { has: committee  } } : {}),
+      ...(department ? { departments: { has: department } } : {}),
+    },
+    select: { id: true, name: true, nameEn: true, timetableName: true },
+    take: 100,
+  })
+
+  const label = [committee, department].filter(Boolean).join(" / ")
+  if (staff.length === 0) {
+    return [
+      `系統冇教師登記咗「${label}」。`,
+      "呢個資料喺「教師資料」頁（/teacher/admin/teachers）填寫，現時可能未填。",
+      "請如實話俾用戶知搵唔到成員，並建議先喺教師資料填委員會／科組；",
+      "或者叫用戶直接講出成員名字，再用 timetable_query 夾空堂。切勿自行猜測邊位係成員。",
+    ].join("\n")
+  }
+
+  const res = await commonFreeSlots(staff)
+  if (!res.term) return "系統尚未上載任何時間表，請建議用戶聯絡管理員上載 CSV。切勿自行推測時間表內容。"
+
+  // Someone with no timetable row has no lessons, so counting them would make
+  // every slot look free. They are reported, not silently included.
+  const notes: string[] = []
+  if (res.unresolved.length > 0) {
+    notes.push(
+      `⚠ 以下 ${res.unresolved.length} 位喺時間表搵唔到，未計入：` +
+      `${res.unresolved.map((u) => u.name ?? "—").join("、")}。` +
+      "所以下面嘅結果未必包含佢哋，請提我用戶去「教師資料」設定時間表姓名。",
+    )
+  }
+  if (res.resolved.length === 0) {
+    return [`「${label}」有 ${staff.length} 位成員，但全部喺時間表搵唔到，無法計算共同空堂。`, ...notes].join("\n")
+  }
+
+  const nameOf = (id: string) => res.resolved.find((r) => r.id === id)?.name ?? "—"
+  const timeOf = (p: number) => {
+    const row = res.periods.find((x) => x.period === p)
+    return row ? `${row.startTime}–${row.endTime}` : ""
+  }
+
+  const header  = "| 節次 | " + Array.from({ length: MAX_DAY }, (_, d) => `星期${WEEKDAY_NAMES[d + 1]}`).join(" | ") + " |"
+  const divider = "|" + "---|".repeat(MAX_DAY + 1)
+  const free: string[] = []
+  const rows = Array.from({ length: MAX_PERIOD }, (_, i) => {
+    const p = i + 1
+    const cells = Array.from({ length: MAX_DAY }, (_, j) => {
+      const day  = j + 1
+      const busy = res.busy[slotKey(day, p)] ?? []
+      if (busy.length === 0) {
+        free.push(`星期${WEEKDAY_NAMES[day]}第${p}節${timeOf(p) ? `（${timeOf(p)}）` : ""}`)
+        return "✓"
+      }
+      return `${busy.length} 人有課`
+    })
+    const t = timeOf(p)
+    return `| 第${p}節${t ? ` ${t}` : ""} | ${cells.join(" | ")} |`
+  })
+
+  // A near miss is still useful: name who blocks the slots with only one clash.
+  const nearMiss = Array.from({ length: MAX_DAY }, (_, j) => j + 1).flatMap((day) =>
+    Array.from({ length: MAX_PERIOD }, (_, i) => i + 1)
+      .map((p) => ({ day, p, busy: res.busy[slotKey(day, p)] ?? [] }))
+      .filter((x) => x.busy.length === 1)
+      .map((x) => `星期${WEEKDAY_NAMES[x.day]}第${x.p}節（只有 ${nameOf(x.busy[0])} 有課）`))
+
+  return [
+    `「${label}」共 ${res.resolved.length} 位成員（學期 ${res.term}）：${res.resolved.map((r) => r.name).join("、")}`,
+    ...notes,
+    "",
+    header, divider, ...rows,
+    "",
+    free.length > 0
+      ? `全員共同空堂（${free.length} 個）：${free.join("、")}`
+      : "並無全員共同空堂。",
+    nearMiss.length > 0 ? `只差一人嘅時段：${nearMiss.slice(0, 8).join("、")}` : "",
+    "",
+    "以上係系統實際時間表數據。請用上面嘅表格展示，並建議 2-3 個開會時段；",
+    "如果冇全員空堂，可以建議「只差一人」嘅時段，並講明邊位有課。",
+    "唔好加入任何未列出嘅時段或成員。",
+  ].filter(Boolean).join("\n")
 }
 
 async function runFreeTeachers(params: Record<string, unknown>): Promise<string> {
