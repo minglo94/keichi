@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 import { isTeacherOrAdmin } from "@/lib/roles"
 import { commonFreeSlots } from "@/lib/free-slots"
 import { z } from "zod"
+import { dbErrorMessage } from "@/lib/db-error"
 
 // POST — 共同空堂 for an explicit list of teachers, or for everyone matching a
 // 科組／委員會 filter.
@@ -19,6 +20,16 @@ const schema = z.object({
 })
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handle(req)
+  } catch (err) {
+    const msg = dbErrorMessage(err)
+    console.error("[common-free]", err)
+    return NextResponse.json({ error: msg ?? "搜尋失敗，請稍後再試。" }, { status: msg ? 503 : 500 })
+  }
+}
+
+async function handle(req: NextRequest) {
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

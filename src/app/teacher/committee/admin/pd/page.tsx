@@ -121,13 +121,14 @@ function ApplyTab({ staff, inputCls, inputStyle }: {
   const [endTime,   setEndTime]   = useState("12:00")
 
   const [checks,  setChecks]  = useState<Check[] | null>(null)
+  const [checkErr, setCheckErr] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
   const [saving,  setSaving]  = useState(false)
   const [msg,     setMsg]     = useState<string | null>(null)
 
   // Debounced live check — the whole point of 板面 1.
   useEffect(() => {
-    if (!teacherId || !startDate || !startTime || !endTime) { setChecks(null); return }
+    if (!teacherId || !startDate || !startTime || !endTime) { setChecks(null); setCheckErr(null); return }
     setChecking(true)
     const t = setTimeout(async () => {
       try {
@@ -137,8 +138,11 @@ function ApplyTab({ staff, inputCls, inputStyle }: {
             teacherId, startDate, endDate: multiDay ? endDate : startDate, startTime, endTime,
           }),
         })
-        setChecks(res.ok ? (await res.json()).checks : null)
-      } catch { setChecks(null) }
+        const d = await res.json().catch(() => ({}))
+        // A failed check is not the same as "no clash". Say which it is.
+        if (!res.ok) { setChecks(null); setCheckErr(d?.error ?? `檢查失敗 (${res.status})`) }
+        else         { setChecks(d.checks); setCheckErr(null) }
+      } catch { setChecks(null); setCheckErr("檢查失敗，請檢查網絡後再試。") }
       setChecking(false)
     }, 400)
     return () => { clearTimeout(t); setChecking(false) }
@@ -213,6 +217,8 @@ function ApplyTab({ staff, inputCls, inputStyle }: {
         <div className="rounded-input p-3" style={{ background: "var(--color-surface-2)" }}>
           {checking ? (
             <p className="text-caption" style={{ color: "var(--color-ink-400)" }}>檢查中…</p>
+          ) : checkErr ? (
+            <p className="text-caption" style={{ color: "var(--color-discipline)" }}>⚠ {checkErr}</p>
           ) : !checks ? (
             <p className="text-caption" style={{ color: "var(--color-ink-400)" }}>請填寫日期及時間</p>
           ) : (

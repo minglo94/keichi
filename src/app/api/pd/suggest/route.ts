@@ -4,6 +4,7 @@ import { pdSession } from "@/lib/pd-auth"
 import { checkManyPdClashes, datesInRange, loadClashContext } from "@/lib/pd-clash"
 import { hkSchoolYear } from "@/lib/hk-date"
 import { z } from "zod"
+import { dbErrorMessage } from "@/lib/db-error"
 
 // POST — 建議人選: who could attend a workshop in this window.
 //
@@ -21,6 +22,16 @@ const schema = z.object({
 })
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handle(req)
+  } catch (err) {
+    const msg = dbErrorMessage(err)
+    console.error("[pd/suggest]", err)
+    return NextResponse.json({ error: msg ?? "搜尋失敗，請稍後再試。" }, { status: msg ? 503 : 500 })
+  }
+}
+
+async function handle(req: NextRequest) {
   const session = await pdSession()
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
