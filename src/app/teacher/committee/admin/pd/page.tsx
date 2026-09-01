@@ -6,6 +6,7 @@ import { StaffPicker } from "@/components/teacher/StaffPicker"
 import { DEFAULT_PERIODS } from "@/lib/school-periods"
 import { COMMITTEES, SUBJECTS } from "@/lib/school-org"
 import { FreeSlotsPanel } from "@/components/teacher/FreeSlotsPanel"
+import { hkYmd } from "@/lib/hk-date"
 
 type Staff = { id: string; name: string | null; nameEn: string | null; email: string | null; image: string | null }
 
@@ -46,7 +47,7 @@ const DAYS = ["", "星期一", "星期二", "星期三", "星期四", "星期五
 const TIMES = Array.from({ length: 48 }, (_, i) =>
   `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`)
 
-const todayYmd = () => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10)
+const todayYmd = () => hkYmd()
 
 export default function PdPage() {
   const [tab, setTab] = useState<"apply" | "records" | "info" | "free" | "settings">("apply")
@@ -341,8 +342,8 @@ function RecordsTab() {
                 )}
               </div>
               <p className="text-caption" style={{ color: "var(--color-ink-500)" }}>
-                {a.teacherName}　{a.startDate.slice(0, 10)}
-                {a.endDate.slice(0, 10) !== a.startDate.slice(0, 10) && ` – ${a.endDate.slice(0, 10)}`}
+                {a.teacherName}　{hkYmd(new Date(a.startDate))}
+                {hkYmd(new Date(a.endDate)) !== hkYmd(new Date(a.startDate)) && ` – ${hkYmd(new Date(a.endDate))}`}
                 　{a.startTime}–{a.endTime}
                 {a.organiser && `　${a.organiser}`}
               </p>
@@ -541,7 +542,9 @@ function SettingsTab({ inputCls, inputStyle }: { inputCls: string; inputStyle: R
         : Array.from({ length: 10 }, (_, i) => ({ period: i + 1, label: null, startTime: "", endTime: "" })))
       setNt((d.nonTeaching ?? []).map((x: any) => ({
         name: x.name, type: x.type, freeFrom: x.freeFrom,
-        startDate: String(x.startDate).slice(0, 10), endDate: String(x.endDate).slice(0, 10),
+        // Stored as HK midnight / 23:59, so slice the UTC ISO string and the
+        // start date comes back a day early.
+        startDate: hkYmd(new Date(x.startDate)), endDate: hkYmd(new Date(x.endDate)),
       })))
       setDocs(d.docs ?? [])
     })

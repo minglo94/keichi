@@ -4,6 +4,7 @@ import { pdSession } from "@/lib/pd-auth"
 import { notify } from "@/lib/notify"
 import { checkPdClashes, datesInRange, summariseChecks, hasBlocking } from "@/lib/pd-clash"
 import { z } from "zod"
+import { hkYmd } from "@/lib/hk-date"
 
 // Mirrors the notice/activity review routes: PENDING-only, reject needs a
 // reason. Approving over a clash is allowed but must be acknowledged, and the
@@ -48,10 +49,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   // Re-run the check at decision time rather than trusting the stored summary —
   // the timetable or holiday list may have changed since it was filed.
-  const dates  = datesInRange(
-    app.startDate.toISOString().slice(0, 10),
-    app.endDate.toISOString().slice(0, 10),
-  )
+  // The dates are stored as HK midnight, which is 16:00 the *previous* day in
+  // UTC — so slicing the ISO string re-checked the wrong day. Read them back in
+  // Hong Kong.
+  const dates = datesInRange(hkYmd(app.startDate), hkYmd(app.endDate))
   // Resolve against the live account so a later 時間表姓名 correction takes
   // effect; fall back to the name snapshotted on the application.
   const teacherAccount = await prisma.user.findUnique({
