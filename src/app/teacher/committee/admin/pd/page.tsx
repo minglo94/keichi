@@ -251,8 +251,16 @@ function ApplyTab({ staff, inputCls, inputStyle }: {
 
 function CheckLine({ c }: { c: Check }) {
   if (c.kind === "clear") {
+    // A 假期 row short-circuits the whole date, so if one was imported by
+    // mistake the check looks broken rather than wrong. Say where to undo it.
+    const byHoliday = c.reason.includes("非上課日")
     return <span className="text-caption" style={{ color: "var(--color-curriculum)" }}>
       ✓ {c.date}　冇衝突（{c.reason}）
+      {byHoliday && (
+        <span style={{ color: "var(--color-ink-400)" }}>
+          　— 當日列為非上課日，唔會對照時間表；如果並非假期，請到「設定 → 假期／考試期」移除
+        </span>
+      )}
     </span>
   }
   if (c.kind === "clash") {
@@ -613,15 +621,30 @@ function SettingsTab({ inputCls, inputStyle }: { inputCls: string; inputStyle: R
             className="text-caption font-medium" style={{ color: "var(--color-admin)" }}>
             {importing ? "匯入中…" : "從行事曆匯入假期"}
           </button>
-          <button onClick={() => importHolidays(true)} disabled={importing}
+          <button
+            onClick={() => {
+              // Every imported row is a 非上課日, which suppresses clash
+              // checking for that whole date — worth one confirmation.
+              if (confirm("匯入全部學校活動及假期？\n\n所有匯入項目都會當作「非上課日」，該日的進修申請一律顯示「冇衝突」，唔會對照時間表。\n\n開學日、陸運會等照常上課的日子請自行刪除。")) {
+                importHolidays(true)
+              }
+            }}
+            disabled={importing}
             className="text-caption" style={{ color: "var(--color-ink-400)" }}>
-            匯入全部學校活動及假期
+            匯入全部（全部當作非上課日）
           </button>
           {importMsg && <span className="text-caption" style={{ color: "var(--color-ink-500)" }}>{importMsg}</span>}
         </div>
         <div className="space-y-2">
           {nt.map((n, i) => (
-            <div key={i} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-center">
+            <div key={i} className="space-y-1">
+            {isWeekdayHoliday(n) && (
+              <p className="text-caption" style={{ color: "var(--color-admin)" }}>
+                ⚠ 「{n.name}」係平日假期 — 該日所有進修申請都會顯示「冇衝突」，唔會對照時間表。
+                如果當日照常上課，請改成考試期或刪除。
+              </p>
+            )}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-center">
               <input placeholder="名稱（如 暑假）" value={n.name} className={inputCls} style={inputStyle}
                 onChange={(e) => setNt((p) => p.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
               <select value={n.type} className={inputCls} style={inputStyle}
@@ -639,6 +662,7 @@ function SettingsTab({ inputCls, inputStyle }: { inputCls: string; inputStyle: R
                 <button onClick={() => setNt((p) => p.filter((_, j) => j !== i))}
                   className="text-caption shrink-0" style={{ color: "var(--color-discipline)" }}>✕</button>
               </div>
+            </div>
             </div>
           ))}
         </div>
@@ -891,3 +915,10 @@ function Bucket({ title, tone, items, selectedId, onPick, showLessons }: {
   )
 }
 
+
+/** A HOLIDAY landing on Mon-Fri silently disables clash checking for that day. */
+function isWeekdayHoliday(n: NonTeaching): boolean {
+  if (n.type !== "HOLIDAY" || !n.startDate) return false
+  const d = new Date(`${n.startDate}T12:00:00+08:00`).getUTCDay()
+  return d >= 1 && d <= 5
+}
