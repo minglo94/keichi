@@ -71,7 +71,7 @@ export type ClashContext = {
   periods:        { period: number | null; label: string | null; startTime: string; endTime: string }[]
   periodWindow:   Map<number, Window>
   namedWindow:    Map<string, { window: Window; startTime: string; endTime: string }>
-  nonTeaching:    { name: string; type: "HOLIDAY" | "EXAM"; startDate: Date; endDate: Date; freeFrom: string | null }[]
+  nonTeaching:    { name: string; type: "HOLIDAY" | "EXAM" | "EVENT"; startDate: Date; endDate: Date; freeFrom: string | null }[]
   configured:     boolean
 }
 
@@ -111,9 +111,14 @@ function evaluate(
   requested: Window,
 ): PdDayCheck[] {
   return dates.map((date): PdDayCheck => {
-    // 1. Holidays and exam periods win over the timetable.
+    // 1. Holidays and exam periods win over the timetable. A 學校活動 (EVENT)
+    // deliberately does not: lessons still run that day, so it is carried
+    // through as a label and the timetable is still consulted below.
     const day = new Date(`${date}T12:00:00+08:00`)
-    const cover = ctx.nonTeaching.find((n) => day >= n.startDate && day <= n.endDate)
+    const covers = ctx.nonTeaching.filter((n) => day >= n.startDate && day <= n.endDate)
+    const event  = covers.find((n) => n.type === "EVENT")
+    const note   = event ? `${event.name}（學校活動，照常上課）` : ""
+    const cover  = covers.find((n) => n.type !== "EVENT")
     if (cover) {
       if (cover.type === "HOLIDAY") return { date, kind: "clear", reason: `${cover.name}（非上課日）` }
       const freeFrom = cover.freeFrom ? toMinutes(cover.freeFrom) : null
@@ -128,7 +133,9 @@ function evaluate(
 
     // 2. Weekends have no timetable rows at all.
     const wd = hkWeekday(date)
-    if (wd === 0 || wd === 6) return { date, kind: "clear", reason: "星期六／日" }
+    if (wd === 0 || wd === 6) {
+      return { date, kind: "clear", reason: note ? `星期六／日 · ${note}` : "星期六／日" }
+    }
 
     // 3. Compare against that weekday's lessons.
     const hits: string[] = []
@@ -156,9 +163,13 @@ function evaluate(
       }
     }
 
-    return hits.length > 0
-      ? { date, kind: "clash", lessons: hits }
-      : { date, kind: "clear", reason: `星期${WEEKDAY_NAMES[wd]}此時段無課` }
+    if (hits.length > 0) {
+      // Keep the event name on a clash too — 「陸運會」 explains why the lesson
+      // may not actually run, without the system deciding that for you.
+      return { date, kind: "clash", lessons: note ? [...hits, note] : hits }
+    }
+    const free = `星期${WEEKDAY_NAMES[wd]}此時段無課`
+    return { date, kind: "clear", reason: note ? `${free} · ${note}` : free }
   })
 }
 

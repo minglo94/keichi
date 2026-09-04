@@ -28,18 +28,23 @@ export async function GET(req: NextRequest) {
     take: 300,
   })
 
-  // A light hint only — the admin still decides. Anything reading as a break
-  // or a suspension of lessons is pre-ticked; everything else comes unticked.
+  // Anything reading as a break becomes a 假期; everything else is imported as
+  // a 學校活動, which labels the day without cancelling its lessons. Typing
+  // every SCHOOL event as a HOLIDAY turned ordinary teaching days (開學日,
+  // 陸運會) into days where every clash check reported 冇衝突.
   const HOLIDAY_HINT = /假期|假日|停課|休業|不用上課|放假|holiday|break/i
 
-  const candidates = events.map((e) => ({
-    name:      e.title,
-    type:      "HOLIDAY" as const,
-    startDate: hkYmd(e.startDate),
-    endDate:   hkYmd(e.endDate ?? e.startDate),
-    freeFrom:  null,
-    likely:    HOLIDAY_HINT.test(e.title),
-  }))
+  const candidates = events.map((e) => {
+    const isHoliday = HOLIDAY_HINT.test(e.title)
+    return {
+      name:      e.title,
+      type:      isHoliday ? ("HOLIDAY" as const) : ("EVENT" as const),
+      startDate: hkYmd(e.startDate),
+      endDate:   hkYmd(e.endDate ?? e.startDate),
+      freeFrom:  null,
+      likely:    isHoliday,
+    }
+  })
 
   return NextResponse.json({ candidates })
 }

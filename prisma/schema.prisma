@@ -937,6 +937,9 @@ enum PdStatus {
 enum NonTeachingType {
   HOLIDAY // 假期 — no teaching at all
   EXAM // 考試期 — free from `freeFrom` onwards
+  // 學校活動 — lessons still run. Recorded only so the checker can name the
+  // day; it does NOT clear the timetable the way HOLIDAY does.
+  EVENT
 }
 
 // 節次時間 — AgentTimetable stores bare period numbers (1-10) with no clock

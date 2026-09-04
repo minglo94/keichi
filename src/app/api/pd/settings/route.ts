@@ -32,7 +32,7 @@ const schema = z.object({
   })).optional(),
   nonTeaching: z.array(z.object({
     name:      z.string().min(1).max(100),
-    type:      z.enum(["HOLIDAY", "EXAM"]),
+    type:      z.enum(["HOLIDAY", "EXAM", "EVENT"]),
     startDate: z.string(),
     endDate:   z.string(),
     freeFrom:  z.string().regex(HHMM).nullable().optional(),

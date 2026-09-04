@@ -32,7 +32,7 @@ type Profile = {
 }
 
 type Period      = { period: number | null; label: string | null; startTime: string; endTime: string }
-type NonTeaching = { id?: string; name: string; type: "HOLIDAY" | "EXAM"; startDate: string; endDate: string; freeFrom: string | null }
+type NonTeaching = { id?: string; name: string; type: "HOLIDAY" | "EXAM" | "EVENT"; startDate: string; endDate: string; freeFrom: string | null }
 type DocLink     = { id?: string; label: string; url: string }
 
 const STATUS = {
@@ -524,6 +524,7 @@ function SettingsTab({ inputCls, inputStyle }: { inputCls: string; inputStyle: R
       return
     }
     const { candidates } = await res.json() as {
+      // The API decides the type: a break becomes 假期, anything else 學校活動.
       candidates: (NonTeaching & { likely: boolean })[]
     }
     const picked = candidates.filter((c) => all || c.likely)
@@ -539,7 +540,7 @@ function SettingsTab({ inputCls, inputStyle }: { inputCls: string; inputStyle: R
     setImporting(false)
     setImportMsg(added === 0
       ? "冇新的日期可匯入。"
-      : `已加入 ${added} 項，請檢查後按「儲存設定」。`)
+      : `已加入 ${added} 項（假期／學校活動已自動分類），請檢查後按「儲存設定」。`)
   }
 
   useEffect(() => {
@@ -614,24 +615,18 @@ function SettingsTab({ inputCls, inputStyle }: { inputCls: string; inputStyle: R
       <div className="card p-5">
         <h3 className="text-h3 mb-1">假期／考試期</h3>
         <p className="text-caption mb-2" style={{ color: "var(--color-ink-400)" }}>
-          假期＝全日無課；考試期可設定「幾點後可外出」（例如 13:00）。考試期請自行輸入。
+          假期＝全日無課，當日一律冇衝突；考試期可設定「幾點後可外出」（例如 13:00）；
+          學校活動＝照常上課，只作標示，仍然會對照時間表檢查衝突（例如開學日、陸運會）。
+          考試期請自行輸入。
         </p>
         <div className="flex items-center gap-3 flex-wrap mb-3">
           <button onClick={() => importHolidays(false)} disabled={importing}
             className="text-caption font-medium" style={{ color: "var(--color-admin)" }}>
             {importing ? "匯入中…" : "從行事曆匯入假期"}
           </button>
-          <button
-            onClick={() => {
-              // Every imported row is a 非上課日, which suppresses clash
-              // checking for that whole date — worth one confirmation.
-              if (confirm("匯入全部學校活動及假期？\n\n所有匯入項目都會當作「非上課日」，該日的進修申請一律顯示「冇衝突」，唔會對照時間表。\n\n開學日、陸運會等照常上課的日子請自行刪除。")) {
-                importHolidays(true)
-              }
-            }}
-            disabled={importing}
+          <button onClick={() => importHolidays(true)} disabled={importing}
             className="text-caption" style={{ color: "var(--color-ink-400)" }}>
-            匯入全部（全部當作非上課日）
+            連學校活動一併匯入
           </button>
           {importMsg && <span className="text-caption" style={{ color: "var(--color-ink-500)" }}>{importMsg}</span>}
         </div>
@@ -640,17 +635,18 @@ function SettingsTab({ inputCls, inputStyle }: { inputCls: string; inputStyle: R
             <div key={i} className="space-y-1">
             {isWeekdayHoliday(n) && (
               <p className="text-caption" style={{ color: "var(--color-admin)" }}>
-                ⚠ 「{n.name}」係平日假期 — 該日所有進修申請都會顯示「冇衝突」，唔會對照時間表。
-                如果當日照常上課，請改成考試期或刪除。
+                ⚠ 「{n.name}」係平日單日假期 — 該日所有進修申請都會一律顯示「冇衝突」，唔會對照時間表。
+                如果當日照常上課，請改為「學校活動」。
               </p>
             )}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-center">
               <input placeholder="名稱（如 暑假）" value={n.name} className={inputCls} style={inputStyle}
                 onChange={(e) => setNt((p) => p.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
               <select value={n.type} className={inputCls} style={inputStyle}
-                onChange={(e) => setNt((p) => p.map((x, j) => j === i ? { ...x, type: e.target.value as "HOLIDAY" | "EXAM" } : x))}>
-                <option value="HOLIDAY">假期</option>
+                onChange={(e) => setNt((p) => p.map((x, j) => j === i ? { ...x, type: e.target.value as NonTeaching["type"] } : x))}>
+                <option value="HOLIDAY">假期（全日無課）</option>
                 <option value="EXAM">考試期</option>
+                <option value="EVENT">學校活動（照常上課）</option>
               </select>
               <input type="date" value={n.startDate} className={inputCls} style={inputStyle}
                 onChange={(e) => setNt((p) => p.map((x, j) => j === i ? { ...x, startDate: e.target.value } : x))} />
@@ -916,9 +912,14 @@ function Bucket({ title, tone, items, selectedId, onPick, showLessons }: {
 }
 
 
-/** A HOLIDAY landing on Mon-Fri silently disables clash checking for that day. */
+/**
+ * A single weekday marked 假期 is the shape a mis-classified school event
+ * takes — a real break (聖誕假期, 復活節假期) spans several days, so only
+ * one-day weekday holidays are worth querying.
+ */
 function isWeekdayHoliday(n: NonTeaching): boolean {
   if (n.type !== "HOLIDAY" || !n.startDate) return false
+  if (n.endDate && n.endDate !== n.startDate) return false
   const d = new Date(`${n.startDate}T12:00:00+08:00`).getUTCDay()
   return d >= 1 && d <= 5
 }
