@@ -72,7 +72,8 @@ function formatDateTime(iso: string) {
   return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`
 }
 
-function StudentSearch({ onAssign, existingIds }: {
+function StudentSearch({ actId, onAssign, existingIds }: {
+  actId: string
   onAssign: (assigned: { studentId: string }[], clashes: Clash[]) => void
   existingIds: Set<string>
 }) {
@@ -82,6 +83,7 @@ function StudentSearch({ onAssign, existingIds }: {
   const [results, setResults] = useState<Student[]>([])
   const [selected, setSelected] = useState<Student[]>([])
   const [assigning, setAssigning] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
   // The dropdown is only shown once the teacher actually searches — it used to
   // open on load (an empty query matches every student) and cover the page.
   const [open, setOpen] = useState(false)
@@ -97,9 +99,9 @@ function StudentSearch({ onAssign, existingIds }: {
     // student body.
     if (!q.trim() && !cid) { setResults([]); return }
     
-    // We'll update the /api/admin/users to support these filters or use a search endpoint
-    // For now, let's assume we use the admin users list and filter client-side if q/cid is small
-    const res  = await fetch("/api/admin/users")
+    // /api/admin/users is admin-gated; a plain teacher got a 403 here and the
+    // dropdown simply stayed empty.
+    const res  = await fetch("/api/students/search?take=200")
     if (res.ok) {
       const data: any[] = await res.json()
       let filtered = data.filter(u => u.role === "STUDENT" && !existingIds.has(u.id) && !selected.some(s => s.id === u.id))
@@ -208,16 +210,18 @@ function StudentSearch({ onAssign, existingIds }: {
           disabled={selected.length === 0 || assigning}
           onClick={async () => {
             if (selected.length === 0) return
-            setAssigning(true)
-            const actId = window.location.pathname.split("/").pop()
+            setAssigning(true); setErr(null)
             const res = await fetch(`/api/activities/${actId}/assign`, {
               method:  "POST",
               headers: { "Content-Type": "application/json" },
               body:    JSON.stringify({ studentIds: selected.map((s) => s.id) }),
             })
-            if (res.ok) {
-              const { assignedCount, clashes } = await res.json()
-              onAssign([], clashes)
+            const d = await res.json().catch(() => ({}))
+            // A refused assignment used to do nothing at all — no error, no
+            // change — which read as "the button is broken".
+            if (!res.ok) setErr(d?.error ?? `指派失敗 (${res.status})`)
+            else {
+              onAssign([], d.clashes ?? [])
               setSelected([])
             }
             setAssigning(false)
@@ -228,29 +232,43 @@ function StudentSearch({ onAssign, existingIds }: {
           {assigning ? "指派中…" : "指派選擇"}
         </button>
       </div>
+
+      {err && <p className="text-caption" style={{ color: "var(--color-discipline)" }}>⚠ {err}</p>}
     </div>
   )
 }
 
-function BulkAssignModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (count: number, clashes: Clash[]) => void }) {
+function BulkAssignModal({ actId, onClose, onSuccess }: {
+  actId: string
+  onClose: () => void
+  onSuccess: (count: number, clashes: Clash[]) => void
+}) {
   const [list, setList] = useState("")
   const [busy, setBusy] = useState(false)
+  const [err,  setErr]  = useState<string | null>(null)
+  const [unmatched, setUnmatched] = useState<{ line: string; reason: string }[]>([])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!list.trim() || busy) return
-    setBusy(true)
-    const actId = window.location.pathname.split("/").pop()
+    setBusy(true); setErr(null); setUnmatched([])
     const res = await fetch(`/api/activities/${actId}/assign`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ studentList: list }),
     })
-    if (res.ok) {
-      const data = await res.json()
-      onSuccess(data.assignedCount, data.clashes)
-    }
+    const data = await res.json().catch(() => ({}))
     setBusy(false)
+    if (!res.ok) { setErr(data?.error ?? `指派失敗 (${res.status})`); return }
+
+    // Rows that matched nothing stay on screen with the reason — silently
+    // assigning "some of them" is how a name goes missing from a roster.
+    setUnmatched(data.unmatched ?? [])
+    if ((data.unmatched ?? []).length === 0) {
+      onSuccess(data.assignedCount, data.clashes)
+    } else {
+      setErr(`已指派 ${data.assignedCount} 位，${data.unmatched.length} 行未能配對：`)
+    }
   }
 
   return (
@@ -268,6 +286,7 @@ function BulkAssignModal({ onClose, onSuccess }: { onClose: () => void; onSucces
             <p className="text-xs text-blue-700 font-medium mb-1">支援格式範例：</p>
             <ul className="text-[11px] text-blue-600 space-y-0.5 list-disc list-inside">
               <li>4A 15 陳大文 (班別 + 學號 + 姓名)</li>
+              <li>S4A 1 陳梓健 — 班別可寫 4A／S4A／F.4A，學號 1 同 01 一樣</li>
               <li>4A 15 (班別 + 學號)</li>
               <li>陳大文 (姓名)</li>
               <li>chan.tai.man@school.hk (Email)</li>
@@ -283,6 +302,17 @@ function BulkAssignModal({ onClose, onSuccess }: { onClose: () => void; onSucces
             style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)", color: "var(--color-ink-900)" }}
             placeholder="請直接從 Excel 複製列並在此貼上..."
           />
+
+          {err && <p className="text-xs" style={{ color: "var(--color-discipline)" }}>⚠ {err}</p>}
+          {unmatched.length > 0 && (
+            <ul className="text-[11px] space-y-0.5 max-h-32 overflow-y-auto">
+              {unmatched.map((u, i) => (
+                <li key={i} style={{ color: "var(--color-ink-500)" }}>
+                  <span className="font-mono">{u.line || "（空白）"}</span> — {u.reason}
+                </li>
+              ))}
+            </ul>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} 
@@ -612,7 +642,7 @@ export default function ActivityDetailPage() {
             批量指派 (Excel)
           </button>
         </div>
-        <StudentSearch onAssign={handleAssign} existingIds={existingIds} />
+        <StudentSearch actId={id} onAssign={handleAssign} existingIds={existingIds} />
       </div>
 
       {/* Approval state — directly-created activities need a chair's sign-off
@@ -717,7 +747,8 @@ export default function ActivityDetailPage() {
         )}
       </div>
       {showBulk && (
-        <BulkAssignModal 
+        <BulkAssignModal
+          actId={id}
           onClose={() => setShowBulk(false)} 
           onSuccess={handleAssign} 
         />

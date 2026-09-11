@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { findClashes, windowOf } from "@/lib/clash"
+import { canManageActivity } from "@/lib/activity-perm"
+import { resolveRoster, splitRosterLine } from "@/lib/student-resolve"
 
 const schema = z.object({
   studentIds:  z.array(z.string()).optional(),
@@ -17,71 +19,40 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const activity = await prisma.activity.findUnique({ where: { id: params.id } })
   if (!activity) return NextResponse.json({ error: "Activity not found" }, { status: 404 })
-  if (activity.createdById !== session.user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  // Creator, the committee's chair, or an admin — the same set that may approve
+  // or delete it. Creator-only meant nobody could add students to an activity
+  // the system had created on their behalf from an approved notice.
+  if (!await canManageActivity(activity, session.user)) {
+    return NextResponse.json({ error: "只有建立者、組別主席或管理員可指派學生" }, { status: 403 })
+  }
 
   const { studentIds = [], studentList } = schema.parse(await req.json())
   
   let targetStudentIds = [...studentIds]
 
-  // Resolve student identifiers from list if provided
+  // Resolve pasted rows through the shared resolver, so this box and the
+  // 新增活動 grid match identically. It normalises class names (S4A / F.4A /
+  // 4a all key to 4A) and class numbers (01 == 1), which the old inline
+  // version did not — an exact `equals` on the class name meant a roster
+  // written "S4A" silently resolved to nobody.
+  const unmatched: { line: string; reason: string }[] = []
   if (studentList) {
-    const lines = studentList.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
-    if (lines.length > 0) {
-      const resolvedIds: string[] = []
-      
-      for (const line of lines) {
-        // Try to match email directly
-        if (line.includes("@")) {
-          const u = await prisma.user.findUnique({ where: { email: line, role: "STUDENT" }, select: { id: true } })
-          if (u) resolvedIds.push(u.id)
-          continue
-        }
+    const lines = studentList.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+    const parsed = lines.map((line, i) => ({ id: i, line, ...splitRosterLine(line) }))
+    const results = await resolveRoster(parsed)
 
-        // Try to parse "Class No Name" (e.g. "4A 15 Chan Tai Man")
-        const parts = line.split(/\s+/).filter(Boolean)
-        if (parts.length >= 2) {
-          const className = parts[0]
-          const classNo   = parts[1]
-          const maybeName = parts.slice(2).join(" ")
-
-          // Find class first
-          const cls = await prisma.class.findFirst({
-            where: { name: { equals: className, mode: "insensitive" } },
-            select: { id: true }
-          })
-
-          if (cls) {
-            // Find enrollment by class and number
-            const enrollment = await prisma.classEnrollment.findFirst({
-              where: {
-                classId: cls.id,
-                classNumber: classNo
-              },
-              select: { studentId: true }
-            })
-            if (enrollment) {
-              resolvedIds.push(enrollment.studentId)
-              continue
-            }
-          }
-        }
-
-        // Fallback: match by full name
-        const users = await prisma.user.findMany({
-          where: { name: { equals: line, mode: "insensitive" }, role: "STUDENT" },
-          select: { id: true }
-        })
-        if (users.length === 1) {
-          resolvedIds.push(users[0].id)
-        }
-      }
-      
-      targetStudentIds = Array.from(new Set([...targetStudentIds, ...resolvedIds]))
+    const resolvedIds: string[] = []
+    for (const r of results) {
+      if (r.matched) resolvedIds.push(r.userId)
+      else unmatched.push({ line: parsed[r.id]?.line ?? "", reason: r.reason })
     }
+    targetStudentIds = Array.from(new Set([...targetStudentIds, ...resolvedIds]))
   }
 
   if (targetStudentIds.length === 0) {
-    return NextResponse.json({ assigned: [], clashes: [] })
+    // Nothing resolved is a result, not a success — hand back why so the UI can
+    // show it instead of appearing to do nothing.
+    return NextResponse.json({ assignedCount: 0, assigned: [], clashes: [], unmatched })
   }
 
   // Clash detection — shared helper, which unlike the previous inline query
@@ -136,5 +107,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
   }
 
-  return NextResponse.json({ assignedCount: results.length, clashes })
+  return NextResponse.json({ assignedCount: results.length, clashes, unmatched })
 }

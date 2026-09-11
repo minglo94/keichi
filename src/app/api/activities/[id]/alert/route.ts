@@ -1,7 +1,8 @@
-import { isTeacherOrAdmin, isAdmin } from "@/lib/roles"
+import { isTeacherOrAdmin } from "@/lib/roles"
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { canManageActivity } from "@/lib/activity-perm"
 import { pusherServer } from "@/lib/pusher"
 import { notifyMany } from "@/lib/notify"
 
@@ -25,7 +26,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   })
   if (!activity) return NextResponse.json({ error: "Not found" }, { status: 404 })
   // The activity's owner, or any admin, may send reminders.
-  if (activity.createdById !== session.user.id && !isAdmin(session.user.role)) {
+  if (!await canManageActivity(activity, session.user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   if (activity.approval !== "APPROVED") {

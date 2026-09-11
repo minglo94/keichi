@@ -1,4 +1,5 @@
 import { isTeacherOrAdmin, isAdmin, canEditCommittee } from "@/lib/roles"
+import { canManageActivity } from "@/lib/activity-perm"
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
@@ -47,7 +48,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const activity = await prisma.activity.findUnique({ where: { id: params.id } })
   if (!activity) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  if (activity.createdById !== session.user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  // Same set as DELETE and the approval routes.
+  if (!await canManageActivity(activity, session.user)) {
+    return NextResponse.json({ error: "只有建立者、組別主席或管理員可修改" }, { status: 403 })
+  }
 
   const data = patchSchema.parse(await req.json())
   const updated = await prisma.activity.update({

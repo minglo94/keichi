@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef } from "react"
+import { splitRosterLine } from "@/lib/roster-parse"
 
 // Excel-paste student roster grid (班級 → 學號 → 學生姓名).
 //
@@ -70,7 +71,14 @@ export function StudentRosterInput({ rows, onChange, accent = "var(--color-accen
 
     const next = [...rows]
     lines.forEach((raw, ri) => {
-      const cols   = raw.split("\t").map((c) => c.trim())
+      // Excel gives tabs, but a roster copied out of a web page arrives
+      // space-separated — splitting on "\t" alone dropped the whole line into
+      // the first cell, so nothing matched. When pasting into the first column
+      // parse the line properly; a paste into a single column stays literal.
+      const tabbed = raw.split("\t")
+      const cols = (startCol === 0 && tabbed.length === 1)
+        ? (() => { const p = splitRosterLine(raw); return [p.className, p.studentId, p.name] })()
+        : tabbed.map((c) => c.trim())
       const rowIdx = startRow + ri
       while (rowIdx >= next.length) next.push(makeRow(nextId.current++))
       cols.forEach((val, ci) => {
@@ -90,7 +98,7 @@ export function StudentRosterInput({ rows, onChange, accent = "var(--color-accen
       <div className="flex items-start gap-2 p-3 rounded-lg border text-xs text-blue-800 mb-3"
         style={{ background: "#f0f7ff", borderColor: "#b3d1f5" }}>
         <span>👥</span>
-        <span>從 Excel 複製後，<strong>點擊任何一格再按 Ctrl+V</strong>，系統自動填入。欄位順序：<strong>班級 → 學號 → 學生姓名</strong>。</span>
+        <span>從 Excel 複製後，<strong>點擊任何一格再按 Ctrl+V</strong>，系統自動填入。欄位順序：<strong>班級 → 學號 → 學生姓名</strong>（例：<code>S4A 1 陳梓健</code>，班別可寫 4A／S4A／F.4A）。</span>
       </div>
 
       <div className="overflow-x-auto">

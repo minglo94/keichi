@@ -263,7 +263,7 @@ export default function TeacherActivitiesPage() {
       })
       if (!res.ok) throw new Error()
       const { results } = await res.json() as {
-        results: { id: number; matched: boolean; userId?: string; name?: string | null; email?: string | null }[]
+        results: { id: number; matched: boolean; userId?: string; name?: string | null; email?: string | null; reason?: string }[]
       }
       const byId = new Map(results.map((r) => [r.id, r]))
 
@@ -274,7 +274,8 @@ export default function TeacherActivitiesPage() {
           ...row,
           status: hit.matched
             ? { ok: true,  label: hit.email ?? hit.name ?? "已配對" }
-            : { ok: false, label: "找不到" },
+            // Say which part failed — 「找不到」 alone leaves nothing to fix.
+            : { ok: false, label: hit.reason ?? "找不到" },
         }
       }))
 
