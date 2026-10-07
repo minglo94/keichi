@@ -261,6 +261,11 @@ model User {
   // 活動通告 (activity notices)
   noticesCreated  ActivityNotice[] @relation("NoticesCreated")
   noticesReviewed ActivityNotice[] @relation("NoticesReviewed")
+  classroomSessions ClassroomSession[] @relation("ClassroomSessionsLed")
+  lessonRecordsReceived LessonRecord[] @relation("LessonRecordsReceived")
+  lessonRecordsAuthored LessonRecord[] @relation("LessonRecordsAuthored")
+  homeworkRecorded      Homework[]     @relation("HomeworkRecorded")
+  classRepOf            ClassRep[]     @relation("ClassRepOf")
 }
 
 // ─────────────────────────────────────────
@@ -430,6 +435,11 @@ model Class {
   missions        Mission[]
   points          PointTransaction[]
   announcements   Announcement[]
+  classroomSessions ClassroomSession[]
+  seatingPlans      SeatingPlan[]
+  lessonRecords     LessonRecord[]
+  homework          Homework[]
+  classReps         ClassRep[]
 
   @@index([teacherId])
   @@index([homeroomTeacherId])
@@ -1407,4 +1417,162 @@ model AgentSubstitutionRequest {
   createdAt       DateTime      @default(now())
 
   @@index([date])
+}
+
+
+// ─── 課堂 (in-lesson classroom desktop) ─────────────────────────────────────
+
+// One lesson actually taught. AgentTimetable has no FK to Class, so this row is
+// where the fuzzy timetable → Class resolution gets frozen into a fact; records
+// taken during the lesson (Phase 2) hang off it. `seq` separates a class taught
+// twice in the same period on the same day (cover lessons, doubles).
+model ClassroomSession {
+  id          String    @id @default(cuid())
+  classId     String
+  teacherId   String
+  date        DateTime // hkDayStart(ymd)
+  period      Int // 0 = named slot (周會) or a manually-opened lesson
+  periodLabel String?
+  subject     String?
+  seq         Int       @default(1)
+  source      String    @default("timetable") // "timetable" | "manual"
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+
+  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacher User  @relation("ClassroomSessionsLed", fields: [teacherId], references: [id], onDelete: Cascade)
+  records  LessonRecord[]
+  homework Homework[]
+
+  @@unique([classId, date, period, seq])
+  @@index([teacherId, date])
+  @@index([classId, date])
+}
+
+// 座位表. The layout is one Json blob (see src/lib/seating.ts) rather than a row
+// per seat: the grid holds things that aren't students (講台, 走廊, gaps), it is
+// always read and written whole, and 分組 belongs to the arrangement. A student
+// who leaves is handled by reconcile() at read time, not a cascade that would
+// silently reshuffle the chart.
+model SeatingPlan {
+  id        String   @id @default(cuid())
+  classId   String
+  name      String   @default("預設座位表")
+  layout    Json
+  isDefault Boolean  @default(true)
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@index([classId])
+}
+
+// ─── 課堂紀錄 (Phase 2) ──────────────────────────────────────────────────────
+
+enum LessonRecordKind {
+  MISSING_BOOK // 欠帶書本
+  MISSING_HOMEWORK // 欠交功課
+  ABSENT // 缺席
+  LATE // 遲到
+  PERFORMANCE // 課堂表現
+  // 缺席未交: absent on the day the homework was collected, so not counted as
+  // 欠交 — but still owes it. Like MISSING_HOMEWORK it points at a Homework, and
+  // a student holds at most one of the two for any given homework.
+  HOMEWORK_ABSENT
+}
+
+enum HomeworkAuthor {
+  TEACHER
+  REP // 課代表 (Phase 3)
+}
+
+// One row per thing noted about one student in one lesson. A single table with
+// a kind, not four: the review question is "everything about this student /
+// this class over a date range", which is one indexed query here. Only
+// exceptions are stored — 缺席 is a row, being present is the absence of one.
+//
+// PERFORMANCE rows accumulate during the lesson and are awarded as points in
+// one deliberate step; pointTxId records which PointTransaction paid them out,
+// so 撤回 removes exactly that transaction instead of adding a negative one the
+// student would see forever.
+model LessonRecord {
+  id         String           @id @default(cuid())
+  sessionId  String?
+  classId    String // denormalised from the session: the review query's hot path
+  studentId  String
+  kind       LessonRecordKind
+  date       DateTime // HK day start, from the session
+  period     Int?
+  subject    String?
+  tag        String? // quick-pick label: 「主動發問」「欠帶中文書」
+  note       String?
+  points     Int              @default(0) // signed; PERFORMANCE only
+  homeworkId String?
+  // Set when 發放積點 settles this row. Separate from pointTxId because a
+  // student whose +1 and −1 net to zero is settled with no transaction at all.
+  awardedAt  DateTime?
+  pointTxId  String?
+  resolved   Boolean          @default(false) // 已跟進
+  resolvedAt DateTime?
+  authorId   String
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  session  ClassroomSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  class    Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student  User              @relation("LessonRecordsReceived", fields: [studentId], references: [id], onDelete: Cascade)
+  author   User              @relation("LessonRecordsAuthored", fields: [authorId], references: [id], onDelete: Cascade)
+  homework Homework?         @relation(fields: [homeworkId], references: [id], onDelete: SetNull)
+
+  @@index([classId, date])
+  @@index([classId, kind, date])
+  @@index([studentId, createdAt])
+  @@index([sessionId])
+  @@index([pointTxId])
+}
+
+// A piece of homework belongs to the class (one assignment, 30 students); a
+// miss belongs to a student and points here via LessonRecord.homeworkId.
+model Homework {
+  id          String         @id @default(cuid())
+  classId     String
+  sessionId   String?
+  subject     String?
+  title       String
+  detail      String?        @db.Text
+  assignedOn  DateTime // HK day start
+  dueDate     DateTime? // HK day start
+  recordedBy  String
+  byRole      HomeworkAuthor // derived server-side, never from the client
+  confirmedBy String? // 已在課堂覆核 — a marker, not a gate
+  confirmedAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  class    Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+  session  ClassroomSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  recorder User              @relation("HomeworkRecorded", fields: [recordedBy], references: [id], onDelete: Cascade)
+  misses   LessonRecord[]
+
+  @@index([classId, assignedOn])
+  @@index([classId, dueDate])
+}
+
+// 課代表／科代表. subject "" means 全科 — not NULL, because Postgres lets two
+// NULLs coexist under a unique constraint and that would allow duplicates.
+model ClassRep {
+  id        String   @id @default(cuid())
+  classId   String
+  studentId String
+  subject   String   @default("")
+  createdBy String
+  createdAt DateTime @default(now())
+
+  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student User  @relation("ClassRepOf", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, studentId, subject])
+  @@index([studentId])
 }

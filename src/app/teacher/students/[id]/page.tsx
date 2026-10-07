@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import { User, Award, BookOpen, Calendar, ShieldAlert, Download, TrendingUp } from "lucide-react"
+import { RECORD_COLOR, RECORD_LABEL, type LessonRecordKindValue } from "@/lib/lesson-records"
 
 export default function StudentPortfolioPage() {
   const { id } = useParams()
@@ -30,6 +31,7 @@ export default function StudentPortfolioPage() {
   if (!data) return <div className="p-8 text-center text-red-500">找不到學生資料</div>
 
   const { student, stats, submissions, activities, points, behavior } = data
+  const lessonRecords: any[] = data.lessonRecords ?? []
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -122,6 +124,31 @@ export default function StudentPortfolioPage() {
                   <div className="text-xs text-gray-500">{new Date(b.date).toLocaleDateString()}</div>
                 </div>
                 <div className="text-sm">{b.description}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 課堂紀錄 — from 課堂, joined by student id */}
+        <div className="card overflow-hidden">
+          <div className="p-4 bg-gray-50 border-b font-bold flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 text-gray-400" />
+            課堂紀錄
+          </div>
+          <div className="divide-y max-h-[400px] overflow-y-auto">
+            {lessonRecords.length === 0 ? (
+              <div className="p-8 text-center text-gray-400 text-sm">暫無記錄</div>
+            ) : lessonRecords.map((r) => (
+              <div key={r.id} className="p-4">
+                <div className="flex justify-between items-start mb-1">
+                  <div className="text-xs font-bold" style={{ color: RECORD_COLOR[r.kind as LessonRecordKindValue] }}>
+                    {RECORD_LABEL[r.kind as LessonRecordKindValue]}
+                    {r.kind === "PERFORMANCE" ? `　${r.points > 0 ? "+" : ""}${r.points}` : ""}
+                    {r.resolved && <span className="ml-2 text-gray-400 font-normal">已跟進</span>}
+                  </div>
+                  <div className="text-xs text-gray-500">{new Date(r.date).toLocaleDateString("zh-HK", { timeZone: "Asia/Hong_Kong" })} · {r.class?.name} {r.subject ?? ""}</div>
+                </div>
+                <div className="text-sm">{[r.tag, r.homework?.title, r.note].filter(Boolean).join("　") || "—"}</div>
               </div>
             ))}
           </div>

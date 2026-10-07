@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { fetchArray } from "@/lib/fetch-json"
+import { isFormClassName } from "@/lib/form-class"
 
 type ClassInfo = { id: string; name: string }
 type LeaderboardEntry = {
@@ -13,19 +14,32 @@ type LeaderboardEntry = {
 
 const MEDAL = ["🥇", "🥈", "🥉"]
 
+type Tx = { id: string; amount: number; reason: string; note: string | null; createdAt: string; class: { id: string; name: string } }
+
+const REASON: Record<string, string> = {
+  ATTENDANCE: "出席", MISSION: "完成任務", FLASHCARD: "溫習閃卡", TEACHER: "老師獎勵", REDEEM: "兌換",
+}
+
 export default function StudentPointsPage() {
   const { data: session } = useSession()
   const [classes, setClasses] = useState<ClassInfo[]>([])
   const [activeClass, setActiveClass] = useState<ClassInfo | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [history, setHistory] = useState<Tx[]>([])
+
+  useEffect(() => {
+    fetch("/api/me/points").then((r) => (r.ok ? r.json() : { history: [] })).then((d) => setHistory(d.history ?? []))
+  }, [])
 
   // Fetch enrolled classes on mount
   useEffect(() => {
     fetchArray<ClassInfo>("/api/classes")
       .then((data) => {
         setClasses(data)
-        if (data.length > 0) setActiveClass(data[0])
+        // Points rank by form class — 課堂表現 from a 選修組 lands on the
+        // student's own class — so open on that one.
+        if (data.length > 0) setActiveClass(data.find((c) => isFormClassName(c.name)) ?? data[0])
       })
   }, [])
 
@@ -94,7 +108,7 @@ export default function StudentPointsPage() {
           style={{ background: "var(--color-accent-soft)", color: "var(--color-accent)" }}
         >
           <div className="text-2xl mb-1">🌱</div>
-          <div className="text-sm font-medium">你還沒有積點，完成任務或複習閃卡來獲得積點吧！</div>
+          <div className="text-sm font-medium">你還沒有積點，課堂上積極表現、完成任務或複習閃卡都可以獲得積點！</div>
         </div>
       ) : null}
 
@@ -201,6 +215,33 @@ export default function StudentPointsPage() {
                 </li>
               )
             })}
+          </ul>
+        )}
+      </div>
+
+      {/* 我的積點記錄 — every point earned or lost, with the teacher's note. */}
+      <div className="rounded-2xl border overflow-hidden mt-4" style={{ background: "var(--color-surface)", borderColor: "var(--color-border)" }}>
+        <div className="px-4 py-3 border-b" style={{ borderColor: "var(--color-border)" }}>
+          <span className="text-sm font-semibold" style={{ color: "var(--color-ink-900)" }}>我的積點記錄</span>
+        </div>
+        {history.length === 0 ? (
+          <div className="py-8 text-center text-sm" style={{ color: "var(--color-ink-300)" }}>暫無記錄</div>
+        ) : (
+          <ul>
+            {history.map((t) => (
+              <li key={t.id} className="flex items-start gap-3 px-4 py-3 border-b last:border-b-0" style={{ borderColor: "var(--color-border)" }}>
+                <span className="font-bold text-sm tabular-nums w-12 shrink-0 text-right"
+                  style={{ color: t.amount > 0 ? "#15803d" : t.amount < 0 ? "#b91c1c" : "var(--color-ink-400)" }}>
+                  {t.amount > 0 ? "+" : ""}{t.amount}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm" style={{ color: "var(--color-ink-900)" }}>{t.note || REASON[t.reason] || t.reason}</p>
+                  <p className="text-xs" style={{ color: "var(--color-ink-400)" }}>
+                    {REASON[t.reason] ?? t.reason} · {t.class.name} · {new Date(t.createdAt).toLocaleDateString("zh-HK", { timeZone: "Asia/Hong_Kong" })}
+                  </p>
+                </div>
+              </li>
+            ))}
           </ul>
         )}
       </div>

@@ -24,6 +24,7 @@ const MAIN_NAV: NavItem[] = [
   { href: "/teacher/activities",    label: "活動管理", icon: ActivityIcon,  hidden: true },
   { href: "/teacher/missions",      label: "任務管理", icon: ClipboardIcon, hidden: true },
   { href: "/teacher/points",        label: "積點",     icon: StarIcon,      hidden: true },
+  { href: "/teacher/classroom",     label: "課堂",     icon: ClassroomIcon  },
   { href: "/teacher/prompts",       label: "提示詞庫", icon: PromptIcon     },
   { href: "/teacher/agents",        label: "AI 助理",  icon: AgentIcon      },
 ]
@@ -445,6 +446,21 @@ function BroadcastIcon() {
       <path d="M3 11v3a1 1 0 0 0 1 1h3l4 3V7L7 10H4a1 1 0 0 0-1 1z"/>
       <path d="M16 9a4 4 0 0 1 0 6"/>
       <path d="M19 6a8 8 0 0 1 0 12"/>
+    </svg>
+  )
+}
+
+// 課堂 — a seating grid seen from the front: the teacher's desk, then rows.
+function ClassroomIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="7" y="2" width="10" height="3" rx="1"/>
+      <rect x="3" y="9" width="5" height="4" rx="1"/>
+      <rect x="9.5" y="9" width="5" height="4" rx="1"/>
+      <rect x="16" y="9" width="5" height="4" rx="1"/>
+      <rect x="3" y="17" width="5" height="4" rx="1"/>
+      <rect x="9.5" y="17" width="5" height="4" rx="1"/>
+      <rect x="16" y="17" width="5" height="4" rx="1"/>
     </svg>
   )
 }

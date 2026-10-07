@@ -23,7 +23,7 @@ export async function GET(
     return NextResponse.json({ error: "Student not found" }, { status: 404 })
   }
 
-  const [submissions, activities, points, behavior] = await Promise.all([
+  const [submissions, activities, points, behavior, lessonRecords] = await Promise.all([
     prisma.missionSubmission.findMany({
       where: { studentId },
       include: { mission: true },
@@ -49,7 +49,17 @@ export async function GET(
           where: { studentName: student.name },
           orderBy: { date: "desc" }
         })
-      : Promise.resolve([])
+      : Promise.resolve([]),
+    // 課堂紀錄 join by studentId — unlike BehaviorRecord above, no name matching.
+    prisma.lessonRecord.findMany({
+      where:   { studentId },
+      select:  {
+        id: true, kind: true, date: true, tag: true, note: true, points: true, resolved: true,
+        subject: true, class: { select: { name: true } }, homework: { select: { title: true } },
+      },
+      orderBy: { date: "desc" },
+      take:    200,
+    }),
   ])
 
   // Calculate some stats
@@ -69,6 +79,7 @@ export async function GET(
     submissions,
     activities,
     points,
-    behavior
+    behavior,
+    lessonRecords,
   })
 }

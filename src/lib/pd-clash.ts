@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { overlaps, type Window } from "@/lib/clash"
 import { getAllTeachers, getLatestTerm, periodLabelOf, WEEKDAY_NAMES } from "@/lib/agent-timetable"
 import { resolveAgainstTimetable } from "@/lib/teacher-match"
+import { hkWeekday } from "@/lib/hk-date"
 
 // ─────────────────────────────────────────────────────────────
 // 教師進修 clash checking.
@@ -51,10 +52,6 @@ export function datesInRange(from: string, to: string): string[] {
   return out
 }
 
-/** HK weekday (0=Sun … 6=Sat) for a YYYY-MM-DD. */
-function hkWeekday(ymd: string): number {
-  return new Date(`${ymd}T12:00:00+08:00`).getUTCDay()
-}
 
 type Lesson = {
   dayOfWeek:   number
