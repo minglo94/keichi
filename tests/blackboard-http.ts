@@ -545,8 +545,93 @@ async function main() {
   });
   await p.class.delete({ where: { id: "bb-a" } });
   assert.equal(await p.blackboardSession.count(), 0);
+
+  for (const [id, name] of [
+    ["bb-preset-one", "1A"],
+    ["bb-preset-five", "5A"],
+    ["bb-preset-group", "S4-X1"],
+  ])
+    await p.class.create({
+      data: { id, name, classCode: id, teacherId: "bb-owner" },
+    });
+  await p.blackboardAccess.create({
+    data: {
+      classId: "bb-b",
+      enabled: true,
+      passwordHash: await bcrypt.hash("oldBoardPassword", 4),
+      version: 7,
+      sessionVersion: 4,
+    },
+  });
+  const beforeReset = await request("/api/blackboard/login", "POST", {
+    className: "1B",
+    password: "oldBoardPassword",
+  });
+  await status(beforeReset, 200);
+  const preset = "/api/admin/blackboard/preset-passwords";
+  await status(await request(preset, "GET"), 403);
+  await status(await request(preset, "GET", undefined, owner), 403);
+  const previewResponse = await request(preset, "GET", undefined, admin);
+  await status(previewResponse, 200);
+  const presetPreview = await previewResponse.json();
+  assert.ok(presetPreview.classes.includes("5A"));
+  const presetInput = {
+    expectedHash: presetPreview.expectedHash,
+    confirmation: "PRESET_ALL_BLACKBOARDS",
+  };
+  await status(
+    await request(preset, "POST", presetInput, admin, "https://evil.invalid"),
+    403,
+  );
+  await status(await request(preset, "POST", presetInput, owner), 403);
+  await status(
+    await request(
+      preset,
+      "POST",
+      { ...presetInput, expectedHash: "0".repeat(64) },
+      admin,
+    ),
+    409,
+  );
+  await p.user.update({ where: { id: "bb-admin" }, data: { role: "TEACHER" } });
+  await status(await request(preset, "POST", presetInput, admin), 403);
+  await p.user.update({ where: { id: "bb-admin" }, data: { role: "ADMIN" } });
+  const applyResponse = await request(preset, "POST", presetInput, admin);
+  await status(applyResponse, 200);
+  const applied = await applyResponse.json();
+  assert.equal(applied.updated, 5);
+  assert.equal(applied.skipped, 1);
+  assert.equal(JSON.stringify(applied).includes("keichi"), false);
+  const five = await p.blackboardAccess.findUniqueOrThrow({
+    where: { classId: "bb-preset-five" },
+  });
+  assert.equal(five.enabled, true);
+  assert.ok(await bcrypt.compare("keichi5a", five.passwordHash));
+  assert.equal(
+    await p.blackboardAccess.findUnique({
+      where: { classId: "bb-preset-group" },
+    }),
+    null,
+  );
+  const afterReset = await request("/api/blackboard/login", "POST", {
+    className: "5A",
+    password: "keichi5a",
+  });
+  await status(afterReset, 200);
+  await status(
+    await request("/api/blackboard", "GET", undefined, cookies(beforeReset)),
+    401,
+  );
+  await status(
+    await request("/api/blackboard/login", "POST", {
+      className: "1B",
+      password: "oldBoardPassword",
+    }),
+    401,
+  );
+  await status(await request(preset, "POST", presetInput, admin), 409);
   console.log(
-    "HTTP integration PASS: login, class isolation, privacy, author permissions, origin, versions, timetable, multi-class publication, reset, logout, duplicate class and cascade",
+    "HTTP integration PASS: login, class isolation, privacy, author permissions, origin, versions, timetable, multi-class publication, reset, logout, duplicate class, cascade and administrator bulk presets",
   );
 }
 main()
