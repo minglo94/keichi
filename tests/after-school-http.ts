@@ -168,8 +168,73 @@ async function main() {
     ["/api/calendar-events/" + activity.calendarEventId, "DELETE"],
   ])
     assert.equal((await request(path, chair, method, {})).status, 409, path);
+
+  const before = (await (await request("/api/after-school/config")).json())
+    .config;
+  const nextYear = {
+    spreadsheetId:
+      "https://docs.google.com/spreadsheets/d/synthetic_sheet_2027/edit?gid=99",
+    sheetTitle: "課後班2027",
+    schoolYearStart: 2027,
+    enabled: false,
+    authorizeAutoApproval: false,
+    expectedVersion: before.version,
+  };
+  assert.equal(
+    (
+      await request("/api/after-school/config", admin, "PUT", {
+        ...nextYear,
+        spreadsheetId: "https://evil.invalid/sheet",
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await request("/api/after-school/config", chair, "PUT", nextYear)).status,
+    403,
+  );
+  assert.equal(
+    (await request("/api/after-school/config", admin, "PUT", nextYear)).status,
+    200,
+  );
+  const saved = (await (await request("/api/after-school/config")).json())
+    .config;
+  assert.equal(saved.spreadsheetId, "synthetic_sheet_2027");
+  assert.equal(saved.schoolYearStart, 2027);
+  assert.equal(
+    (await request("/api/after-school/config", admin, "PUT", nextYear)).status,
+    409,
+  );
+  const nextPreview = await request(
+    "/api/after-school/preview",
+    admin,
+    "POST",
+    { date: "2027-09-06" },
+  );
+  assert.equal(nextPreview.status, 200);
+  const nextData = await nextPreview.json();
+  assert.equal(nextData.rows.length, 2);
+  assert.equal(nextData.errors.length, 0);
+  assert.equal(nextData.title, "6/9 課後班名單");
+  assert.equal(
+    await p.announcement.count({ where: { id: run.announcementId! } }),
+    1,
+    "Previous academic year retained",
+  );
+  assert.equal(
+    (
+      await request("/api/after-school/config", admin, "PUT", {
+        ...nextYear,
+        spreadsheetId: before.spreadsheetId,
+        sheetTitle: before.sheetTitle,
+        schoolYearStart: before.schoolYearStart,
+        expectedVersion: saved.version,
+      })
+    ).status,
+    200,
+  );
   console.log(
-    "HTTP PASS: staff roles, origin, scheduler secret, disabled scheduler, preview privacy, stale preview, idempotent preparation and nine managed mutation guards",
+    "HTTP PASS: staff roles, origin, scheduler secret, disabled scheduler, preview privacy, stale preview, idempotent preparation nine managed mutation guards, source-link validation and next academic year retrieval",
   );
   // Expose local session only to an optional local browser process via a file.
   if (process.env.AFTERSCHOOL_BROWSER_SESSION_FILE) {

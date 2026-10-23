@@ -44,3 +44,48 @@ npm run test:after-school 執行純邏輯及Google adapter測試；另執行 npx
 回復舊版本前先停用設定及外部排程器，確認沒有執行中的worker。此變更只新增資料表及關聯，可先回復應用程式並保留表供審核；若要移除，須由部署負責人在備份後按外鍵相依順序移除AfterSchool系列表。公告、活動、通知及出席資料不會因回復程式自動刪除，不可用全庫重設作rollback。
 
 本次用PGlite PostgreSQL協定隔離合成庫驗證；正式PostgreSQL遷移及排程接線須在staging驗證。網路限制下建置使用Next字型mock代替Google Fonts下載，未改產品字型。既有HEIC require及4項lint警告未更動。
+
+## 在系統設定更換學年來源
+
+入口為 /teacher/admin/settings 的「課後班 Google Sheet 來源及學年設定」，行政公告原有設定亦共用同一份資料。可貼完整 https://docs.google.com/spreadsheets/d/FILE_ID/edit 或Drive檔案連結；伺服器驗證Google網址並只儲存ID，不會抓取任意網址。發布到網絡的 /d/e/.../pubhtml 連結不適用。分頁gid不會自動轉換為工作表名稱，須填實際分頁名稱。
+
+轉2027–28學年時：先停用自動流程；建立新學年的表，向相同service account分享Viewer權限；貼新連結，填新工作表名稱及2027；儲存後到行政公告選2027學年工作日預覽。確認新班級名冊已匯入、學生配對正確，再授權啟用。這是管理員主動換來源，不會自行猜測或尋找下一年的檔案。舊公告及活動保留。儲存會增加設定版本，舊預覽須重做。
+
+## Google只讀憑證逐步設定
+
+1. 開啟 https://console.cloud.google.com/ ，選專用學校專案。在API和服務 → 程式庫啟用Google Sheets API及Google Drive API。
+2. IAM與管理 → 服務帳戶 → 建立服務帳戶，名稱例如keichi-after-school。只讀這份文件不需要專案Owner／Editor角色，也不需要全網域委派。
+3. 服務帳戶 → 金鑰 → 新增金鑰 → 建立新金鑰 → JSON，下載一次。若學校政策禁止JSON金鑰，請由Workspace／Cloud管理員確認允許的連線方式；目前程式使用JSON金鑰，不會自動切換其他身分來源。
+4. JSON的client_email形如keichi-after-school@PROJECT.iam.gserviceaccount.com。到原始Google Sheet按「共用」，加入該電郵，選「檢視者」。不必公開或「發布到網絡」。
+5. 在網站主機的秘密環境變數AFTERSCHOOL_GOOGLE_SERVICE_ACCOUNT_JSON貼完整JSON內容。private_key中的換行保留JSON的跳脫格式；不要只貼檔名、不要把私鑰放入Git、此設定頁或聊天室。按主機流程讓新環境變數生效。
+6. 同時設正確AUTH_URL、既有VAPID推送金鑰及新的獨立AFTERSCHOOL_CRON_SECRET。可在本機用 node -e 'console.log(require("node:crypto").randomBytes(32).toString("hex"))' 產生64字元排程密鑰，僅存網站主機及排程工作設定。
+7. 在系統設定貼表連結、分頁、年份，先保持停用；到行政公告手動預覽確認Google讀取及學生配對成功。單純「已配置」只表示憑證欄位存在，成功預覽才證明原檔可讀。
+
+## 外部排程器逐步設定（Google Cloud Scheduler範例）
+
+在已啟用Cloud Scheduler API並具建立工作權限的Google Cloud專案，開啟Cloud Scheduler → 建立工作。依Google Cloud提示完成專案／計費設定。
+
+| 設定 | 值 |
+|---|---|
+| 名稱 | keichi-after-school-tick |
+| 頻率 | * * * * * |
+| 時區 | Asia/Hong_Kong |
+| 目標 | HTTP |
+| URL | https://teacher.keichi.edu.hk/api/cron/after-school |
+| 方法 | POST |
+| Authentication | 不新增Google OIDC/OAuth token |
+| 自訂標頭名稱 | Authorization |
+| 自訂標頭值 | Bearer 後接空格，再貼AFTERSCHOOL_CRON_SECRET的實際值 |
+| 內容 | {}（可省略） |
+
+此應用端點使用自訂共享密鑰，不驗證Google OIDC身分token。不要用Sheets的Google JSON私鑰當排程密鑰。請限制可檢視／編輯排程工作的人員，因標頭包含秘密。Console若不顯示自訂標頭，Google官方gcloud scheduler jobs create http支援 --headers；由部署管理員用其安全部署流程提供Authorization值，不將實際密鑰寫入版本控制。
+
+先保持應用流程停用，按「立即執行」應得到HTTP200且status為DISABLED；401表示密鑰不同，503可為未設定密鑰。預覽核對完成、VAPID就緒後，在系統設定勾選授權及啟用流程，再啟用排程工作。啟用後在工作日06:00之前回NOT_DUE、週末回WEEKEND均正常。每天查最近處理紀錄及排程錯誤，推送服務ACCEPTED不表示學生已讀。
+
+每分鐘觸發是讓伺服器自行判斷06:00整理、07:00公告、08:15首次提醒及下午一輪；不是每分鐘向學生推送。學校假期由校曆HOLIDAY控制。更換學年來源通常不需要重建排程或服務帳戶，只需分享新檔並更新連結／分頁／年份。
+
+官方文件：
+- https://docs.cloud.google.com/iam/docs/keys-create-delete
+- https://developers.google.com/workspace/guides/create-credentials
+- https://docs.cloud.google.com/scheduler/docs/creating
+- https://docs.cloud.google.com/sdk/gcloud/reference/scheduler/jobs/create/http

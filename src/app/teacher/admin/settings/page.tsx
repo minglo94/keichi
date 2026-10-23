@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import {AfterSchoolPanel} from "@/components/teacher/pa/AfterSchoolPanel"
 
 type Provider = "anthropic" | "openrouter" | "local"
 
@@ -71,7 +72,7 @@ export default function AdminSettingsPage() {
         <h1 className="text-h1">系統設定</h1>
       </div>
       <p className="text-caption mb-6" style={{ color: "var(--color-ink-400)" }}>
-        選擇 AI 供應商。Keida 助理及所有 AI 功能都會使用呢個設定。
+        管理 AI 供應商，以及課後班 Google Sheet 來源與學年。
       </p>
 
       {loading ? (
@@ -149,6 +150,7 @@ export default function AdminSettingsPage() {
           </div>
         </div>
       )}
+      {s && <div className="mt-6"><AfterSchoolPanel settingsOnly /></div>}
     </div>
   )
 }

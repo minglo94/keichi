@@ -10,6 +10,26 @@ if (
 const original = globalThis.fetch;
 globalThis.fetch = async (input, options) => {
   const url = String(input);
+  if (
+    url.startsWith(
+      "https://www.googleapis.com/drive/v3/files/synthetic_sheet_2027?fields=",
+    )
+  )
+    return Response.json({
+      mimeType: "application/vnd.google-apps.spreadsheet",
+    });
+  if (
+    url.startsWith(
+      "https://sheets.googleapis.com/v4/spreadsheets/synthetic_sheet_2027/values/",
+    )
+  )
+    return Response.json({
+      values: [
+        ["班別", "學號", "姓名", "日期", "類型", "出席", "備註"],
+        ["1A", 8, "PRIVATE", "6/9", "功課班"],
+        ["2F", 15, "PRIVATE", "6/9", "正向班"],
+      ],
+    });
   if (url === "https://oauth2.googleapis.com/token")
     return Response.json({ access_token: "synthetic", expires_in: 300 });
   if (

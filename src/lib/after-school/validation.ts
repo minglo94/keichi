@@ -1,12 +1,21 @@
 import { z } from "zod";
 import { parseDate } from "./model";
+import { sourceFileId } from "./source-link";
 export const dateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   .refine((v) => parseDate(v, 2026) === v);
 export const configSchema = z
   .object({
-    spreadsheetId: z.string().regex(/^[A-Za-z0-9_-]{10,200}$/),
+    spreadsheetId: z
+      .string()
+      .trim()
+      .max(2048)
+      .refine(
+        (v) => sourceFileId(v) !== null,
+        "請貼上有效的Google試算表／Drive檔案連結或檔案ID（不是發布到網絡的連結）",
+      )
+      .transform((v) => sourceFileId(v)!),
     sheetTitle: z.string().trim().min(1).max(100),
     schoolYearStart: z.number().int().min(2020).max(2100),
     enabled: z.boolean(),
