@@ -1,3 +1,4 @@
+import { managedResourceResponse } from "@/lib/after-school/managed"
 import { isTeacherOrAdmin, isAdmin, canEditCommittee } from "@/lib/roles"
 import { canManageActivity } from "@/lib/activity-perm"
 import { NextRequest, NextResponse } from "next/server"
@@ -46,6 +47,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!isTeacherOrAdmin(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
+  const managed = await managedResourceResponse("activity", params.id)
+  if (managed) return managed
+
   const activity = await prisma.activity.findUnique({ where: { id: params.id } })
   if (!activity) return NextResponse.json({ error: "Not found" }, { status: 404 })
   // Same set as DELETE and the approval routes.
@@ -73,6 +77,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!isTeacherOrAdmin(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const managed = await managedResourceResponse("activity", params.id)
+  if (managed) return managed
 
   const activity = await prisma.activity.findUnique({ where: { id: params.id } })
   if (!activity) return NextResponse.json({ error: "Not found" }, { status: 404 })
