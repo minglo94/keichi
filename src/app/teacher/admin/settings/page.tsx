@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import {BoardPasswordPreset} from "@/components/blackboard/BoardPasswordPreset"
 import {AfterSchoolPanel} from "@/components/teacher/pa/AfterSchoolPanel"
 
 type Provider = "anthropic" | "openrouter" | "local"
@@ -150,7 +151,7 @@ export default function AdminSettingsPage() {
           </div>
         </div>
       )}
-      {s && <div className="mt-6"><AfterSchoolPanel settingsOnly /></div>}
+      {s && <><div className="mt-6"><AfterSchoolPanel settingsOnly /></div><BoardPasswordPreset /></>}
     </div>
   )
 }
