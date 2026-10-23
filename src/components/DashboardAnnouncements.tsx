@@ -104,7 +104,7 @@ export function DashboardAnnouncements() {
                   onClick={() => toggle(ann.id)}
                   className={`text-[11px] font-medium mt-0.5 ${urgent ? 'text-red-700' : 'text-amber-700'} hover:underline`}
                 >
-                  {isOpen ? "收起" : "閱讀全文"}
+                  {isOpen ? "收起" : /課後班名單$/.test(ann.title) ? "[點我查看全部]" : "閱讀全文"}
                 </button>
               )}
             </div>

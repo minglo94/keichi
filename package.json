@@ -20,7 +20,8 @@
     "db:studio:local": "DATABASE_URL=postgresql://postgres:postgres@localhost:5433/keichi?schema=public DATABASE_URL_UNPOOLED=postgresql://postgres:postgres@localhost:5433/keichi?schema=public prisma studio",
     "email:test": "node --env-file=.env --env-file-if-exists=.env.local --import tsx scripts/test-email.ts",
     "calendar:cleanup:dry": "node --env-file=.env --env-file-if-exists=.env.local --import tsx scripts/delete-old-calendar-events.ts",
-    "calendar:cleanup:confirm": "node --env-file=.env --env-file-if-exists=.env.local --import tsx scripts/delete-old-calendar-events.ts --confirm"
+    "calendar:cleanup:confirm": "node --env-file=.env --env-file-if-exists=.env.local --import tsx scripts/delete-old-calendar-events.ts --confirm",
+    "test:after-school": "node --import tsx --test tests/after-school-*.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

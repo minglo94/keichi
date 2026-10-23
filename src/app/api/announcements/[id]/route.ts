@@ -1,3 +1,4 @@
+import { managedResourceResponse } from "@/lib/after-school/managed"
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
@@ -42,6 +43,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  const managed = await managedResourceResponse("announcement", params.id)
+  if (managed) return managed
+
   const owned = await getOwned(params.id, session.user.id)
   if (!owned) return NextResponse.json({ error: "Not found or forbidden" }, { status: 403 })
 
@@ -62,6 +66,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const managed = await managedResourceResponse("announcement", params.id)
+  if (managed) return managed
 
   const owned = await getOwned(params.id, session.user.id)
   if (!owned) return NextResponse.json({ error: "Not found or forbidden" }, { status: 403 })

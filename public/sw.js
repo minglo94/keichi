@@ -29,7 +29,10 @@ self.addEventListener("push", (event) => {
     badge: "/icon.png",
     data:  { link: data.link || "/teacher" },
     // Group by link so a burst (e.g. a broadcast) doesn't stack up.
-    tag:   data.link || "keichi-notification",
+    tag:   typeof data.tag === "string" ? data.tag : data.link || "keichi-notification",
+    // Scheduled reminder stages have distinct tags, so the afternoon push
+    // remains a new notification even if the morning one is still displayed.
+    renotify: typeof data.tag === "string",
   }
 
   event.waitUntil(self.registration.showNotification(title, options))
