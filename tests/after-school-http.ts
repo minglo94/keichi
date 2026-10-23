@@ -118,7 +118,7 @@ async function main() {
     date: "2026-11-09",
   });
   assert.equal(preview.status, 200);
-  const data = await preview.json();
+  let data = await preview.json();
   assert.equal(data.errors.length, 0);
   assert.match(data.body, /1A #08/);
   assert.ok(!JSON.stringify(data).includes("PRIVATE"));
@@ -132,6 +132,73 @@ async function main() {
     ).status,
     409,
   );
+  const overlapActivity = await p.activity.create({
+    data: {
+      title: "HTTP overlap",
+      createdById: "as-admin",
+      committee: "ADMIN",
+      approval: "APPROVED",
+      startTime: new Date("2026-11-09T15:45:00+08:00"),
+      endTime: new Date("2026-11-09T16:45:00+08:00"),
+      assignments: { create: { studentId: "as-s1" } },
+    },
+  });
+  const warningPreview = await request(
+    "/api/after-school/preview",
+    chair,
+    "POST",
+    { date: "2026-11-09" },
+  );
+  assert.equal(warningPreview.status, 200);
+  data = await warningPreview.json();
+  assert.equal(data.errors.length, 0);
+  assert.match(data.warnings.join(" "), /時間重疊/);
+  assert.equal(
+    (
+      await request("/api/after-school/run", chair, "POST", {
+        date: "2026-11-09",
+        expectedHash: data.hash,
+      })
+    ).status,
+    422,
+  );
+  assert.equal(
+    (
+      await request("/api/after-school/run", chair, "POST", {
+        date: "2026-11-09",
+        expectedHash: data.hash,
+        acceptConflicts: "true",
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request("/api/after-school/run", teacher, "POST", {
+        date: "2026-11-09",
+        expectedHash: data.hash,
+        acceptConflicts: true,
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await request("/api/after-school/run", chair, "POST", {
+        date: "2026-11-09",
+        expectedHash: data.hash,
+        acceptConflicts: true,
+      })
+    ).status,
+    200,
+  );
+  const statusResponse = await request("/api/after-school/status", chair);
+  assert.equal(statusResponse.status, 200);
+  const noted = (await statusResponse.json()).find(
+    (run: any) => run.date === "2026-11-09",
+  );
+  assert.equal(noted.status, "READY");
+  assert.match(noted.lastError, /HTTP overlap/);
   assert.equal(
     (
       await request("/api/after-school/run", chair, "POST", {

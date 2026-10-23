@@ -15,6 +15,7 @@ import { resolveParticipants } from "./policy";
 import { readSource } from "./source";
 import { withLease, approverAllowed } from "./repository";
 import { AfterSchoolError } from "./http";
+import { conflictNote } from "./conflicts";
 export type Reader = typeof readSource;
 export async function previewDay(date: string, reader: Reader = readSource) {
   const config = await prisma.afterSchoolConfig.findUnique({
@@ -37,6 +38,7 @@ export async function previewDay(date: string, reader: Reader = readSource) {
       reason: !s ? "週末" : "學校假期",
       rows: [] as ResolvedParticipant[],
       errors: [] as string[],
+      warnings: [] as string[],
       hash: "",
       configVersion: config.version,
       title: "",
@@ -64,6 +66,14 @@ export async function previewDay(date: string, reader: Reader = readSource) {
     })),
   );
   const errors = [...parsed.errors, ...resolved.errors];
+  const warnings: string[] = [];
+  const conflicts: {
+    studentId: string;
+    activityId: string;
+    title: string;
+    startTime: Date;
+    endTime: Date | null;
+  }[] = [];
   const assignments = await prisma.activityAssignment.findMany({
     where: {
       studentId: { in: resolved.rows.map((r) => r.studentId) },
@@ -75,6 +85,7 @@ export async function previewDay(date: string, reader: Reader = readSource) {
     },
     select: {
       studentId: true,
+      activityId: true,
       activity: { select: { title: true, startTime: true, endTime: true } },
     },
   });
@@ -82,14 +93,32 @@ export async function previewDay(date: string, reader: Reader = readSource) {
   for (const a of assignments)
     if (overlaps(window, windowOf(a.activity.startTime, a.activity.endTime))) {
       const row = resolved.rows.find((r) => r.studentId === a.studentId)!;
-      errors.push(
-        `${row.className} #${row.number} 與「${a.activity.title}」時間重疊，請先處理活動安排`,
+      conflicts.push({
+        studentId: a.studentId,
+        activityId: a.activityId,
+        ...a.activity,
+      });
+      warnings.push(
+        `${row.className} #${row.number} 與「${a.activity.title}」時間重疊`,
       );
     }
 
+  warnings.sort();
+  conflicts.sort(
+    (a, b) =>
+      a.studentId.localeCompare(b.studentId) ||
+      a.activityId.localeCompare(b.activityId),
+  );
   const normalized = resolved.rows;
   const hash = createHash("sha256")
-    .update(JSON.stringify({ date, version: config.version, rows: normalized }))
+    .update(
+      JSON.stringify({
+        date,
+        version: config.version,
+        rows: normalized,
+        conflicts,
+      }),
+    )
     .digest("hex");
   return {
     date,
@@ -97,6 +126,7 @@ export async function previewDay(date: string, reader: Reader = readSource) {
     reason: null,
     rows: normalized,
     errors,
+    warnings,
     hash,
     configVersion: config.version,
     ...formatAnnouncement(date, normalized),
@@ -109,6 +139,7 @@ export async function prepareDay(
   options: {
     expectedHash?: string;
     automatic?: boolean;
+    acceptConflicts?: boolean;
     now?: Date;
     reader?: Reader;
   } = {},
@@ -125,9 +156,35 @@ export async function prepareDay(
     let p: Awaited<ReturnType<typeof previewDay>>;
     try {
       p = await previewDay(date, options.reader);
+      if (options.expectedHash && options.expectedHash !== p.hash)
+        throw new AfterSchoolError(
+          409,
+          "試算表、名冊或重疊活動已改變，請重新預覽",
+        );
       if (p.errors.length)
         throw new AfterSchoolError(422, p.errors.slice(0, 12).join("；"));
+      if (p.warnings.length) {
+        const previous = await prisma.afterSchoolRun.findUnique({
+          where: { date },
+        });
+        const note = conflictNote(p.warnings);
+        const alreadyAccepted =
+          previous?.status === "READY" &&
+          previous.sourceHash === p.hash &&
+          previous.lastError === note;
+        const acceptingPreview =
+          !options.automatic &&
+          options.acceptConflicts === true &&
+          options.expectedHash === p.hash;
+        if (!alreadyAccepted && !acceptingPreview)
+          throw new AfterSchoolError(
+            422,
+            "有時間重疊，請預覽並確認接受後繼續：" +
+              p.warnings.slice(0, 12).join("；"),
+          );
+      }
     } catch (e) {
+      if (e instanceof AfterSchoolError && e.status === 409) throw e;
       const message =
         e instanceof AfterSchoolError
           ? e.message
@@ -167,6 +224,7 @@ export async function prepareDay(
         ? e
         : new AfterSchoolError(503, message);
     }
+    const note = conflictNote(p.warnings);
     const targetStatus = p.skipped
       ? "SKIPPED"
       : p.rows.length
@@ -187,7 +245,7 @@ export async function prepareDay(
       await prisma.afterSchoolRun.update({
         where: { date },
         data: {
-          lastError: null,
+          lastError: note,
           ...(options.automatic ? { automaticPreparedAt: now } : {}),
         },
       });
@@ -207,8 +265,14 @@ export async function prepareDay(
           throw new AfterSchoolError(409, "設定已更新，請重新預覽");
         const current = await tx.afterSchoolRun.upsert({
           where: { date },
-          create: { date, participants: p.rows, actorId, status: "READY" },
-          update: { participants: p.rows, actorId, lastError: null },
+          create: {
+            date,
+            participants: p.rows,
+            actorId,
+            status: "READY",
+            lastError: note,
+          },
+          update: { participants: p.rows, actorId, lastError: note },
         });
         let announcementId = current.announcementId;
         if (p.rows.length) {
@@ -378,7 +442,7 @@ export async function prepareDay(
             participants: p.rows,
             announcementId,
             preparedAt: now,
-            lastError: null,
+            lastError: note,
             ...(options.automatic ? { automaticPreparedAt: now } : {}),
           },
         });

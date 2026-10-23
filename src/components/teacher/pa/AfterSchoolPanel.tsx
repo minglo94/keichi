@@ -14,6 +14,7 @@ type Preview = {
   title: string;
   body: string;
   errors: string[];
+  warnings: string[];
   skipped: boolean;
   reason: string | null;
   rows: unknown[];
@@ -56,6 +57,7 @@ export function AfterSchoolPanel({
   });
   const [date, setDate] = useState(localDate());
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [acceptConflicts, setAcceptConflicts] = useState(false);
   const [runs, setRuns] = useState<Status[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -141,6 +143,7 @@ export function AfterSchoolPanel({
                   onChange={(e) => {
                     setDate(e.target.value);
                     setPreview(null);
+                    setAcceptConflicts(false);
                   }}
                   className="border rounded p-2 ml-2"
                 />
@@ -151,6 +154,7 @@ export function AfterSchoolPanel({
                   onClick={() =>
                     void operation(async () => {
                       setPreview(null);
+                      setAcceptConflicts(false);
                       setPreview(
                         await getJSON("/api/after-school/preview", {
                           method: "POST",
@@ -170,6 +174,7 @@ export function AfterSchoolPanel({
                     !preview ||
                     preview.date !== date ||
                     !!preview.errors.length ||
+                    (!!preview.warnings?.length && !acceptConflicts) ||
                     preview.skipped
                   }
                   onClick={() =>
@@ -180,6 +185,7 @@ export function AfterSchoolPanel({
                         body: JSON.stringify({
                           date,
                           expectedHash: preview!.hash,
+                          acceptConflicts,
                         }),
                       });
                       setMessage(
@@ -190,6 +196,7 @@ export function AfterSchoolPanel({
                             : "公告及已批活動已更新，提醒按時間處理",
                       );
                       setPreview(null);
+                      setAcceptConflicts(false);
                       await load();
                       await onPublished?.();
                     })
@@ -213,6 +220,30 @@ export function AfterSchoolPanel({
                         <li key={i}>{e}</li>
                       ))}
                     </ul>
+                  )}
+                  {!!preview.warnings?.length && (
+                    <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                      <p className="font-semibold">
+                        活動時間重疊（可確認接受後繼續）
+                      </p>
+                      <ul className="list-disc pl-5">
+                        {preview.warnings.map((warning, i) => (
+                          <li key={i}>{warning}</li>
+                        ))}
+                      </ul>
+                      <label className="block mt-3">
+                        <input
+                          type="checkbox"
+                          checked={acceptConflicts}
+                          disabled={busy || preview.date !== date}
+                          onChange={(e) => setAcceptConflicts(e.target.checked)}
+                        />{" "}
+                        我已知悉以上時間重疊，仍接受整理、刊登及建立已批活動，並按原定時間提醒學生
+                      </label>
+                      <p className="text-xs mt-2">
+                        接受後會在「活動／錯誤」保留衝突備註；不會取消其他活動。
+                      </p>
+                    </div>
                   )}
                   <p className="whitespace-pre-wrap text-sm mt-3">
                     {preview.body}
@@ -242,6 +273,7 @@ export function AfterSchoolPanel({
                     }),
                   });
                   setPreview(null);
+                  setAcceptConflicts(false);
                   await load();
                   setMessage("來源及排程設定已儲存");
                 });
@@ -364,7 +396,15 @@ export function AfterSchoolPanel({
                             </a>
                           ))}
                           {run.lastError && (
-                            <p className="text-red-700">{run.lastError}</p>
+                            <p
+                              className={
+                                run.status === "READY"
+                                  ? "text-amber-800"
+                                  : "text-red-700"
+                              }
+                            >
+                              {run.lastError}
+                            </p>
                           )}
                         </td>
                       </tr>

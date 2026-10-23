@@ -3,6 +3,7 @@ import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
 import { dueStages, scheduleFor, instant, type Stage } from "./model";
 import { withLease } from "./repository";
+import { isAcceptedConflictNote } from "./conflicts";
 import { deliveryOutcome } from "./policy";
 export type PushSender = (
   subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
@@ -47,7 +48,11 @@ export async function deliverDay(
       where: { date },
       include: { groups: true },
     });
-    if (!run || run.status !== "READY" || run.lastError)
+    if (
+      !run ||
+      run.status !== "READY" ||
+      (run.lastError && !isAcceptedConflictNote(run.lastError))
+    )
       return { status: "NOT_READY" };
     await prisma.afterSchoolPushAttempt.updateMany({
       where: {

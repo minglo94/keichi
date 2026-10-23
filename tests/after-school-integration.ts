@@ -78,13 +78,120 @@ async function main() {
       assignments: { create: { studentId: "as-s1" } },
     },
   });
-  assert.match((await previewDay(date, reader)).errors.join(" "), /時間重疊/);
+  const conflictPreview = await previewDay(date, reader);
+  assert.equal(conflictPreview.errors.length, 0);
+  assert.match(conflictPreview.warnings.join(" "), /時間重疊/);
   await assert.rejects(
     () => prepareDay(date, "as-admin", { reader, now: at("06:00") }),
     /時間重疊/,
   );
   assert.equal(await p.announcement.count(), 0);
+  await prepareDay(date, "as-admin", {
+    reader,
+    now: at("06:00"),
+    expectedHash: conflictPreview.hash,
+    acceptConflicts: true,
+  });
+  const accepted = await p.afterSchoolRun.findUniqueOrThrow({
+    where: { date },
+  });
+  assert.equal(accepted.status, "READY");
+  assert.match(accepted.lastError || "", /已確認接受時間重疊/);
+  assert.equal(await p.announcement.count(), 1);
+  assert.equal(await p.activity.count(), 3);
+  await prepareDay(date, "as-admin", {
+    reader,
+    now: at("06:01"),
+    automatic: true,
+  });
+  assert.equal(
+    (await p.afterSchoolRun.findUniqueOrThrow({ where: { date } })).lastError,
+    accepted.lastError,
+  );
+  await p.pushSubscription.create({
+    data: {
+      id: "conflict-device",
+      userId: "as-s1",
+      endpoint: "https://push.invalid/conflict",
+      p256dh: "test",
+      auth: "test",
+    },
+  });
+  let conflictPushes = 0;
+  const conflictSender = async () => {
+    conflictPushes++;
+  };
+  await deliverDay(date, {
+    clock: () => at("08:15"),
+    pushReady: () => true,
+    sender: conflictSender,
+  });
+  assert.equal(
+    conflictPushes,
+    1,
+    "accepted overlap must still send morning push",
+  );
+  await deliverDay(date, {
+    clock: () => at("08:16"),
+    pushReady: () => true,
+    sender: conflictSender,
+  });
+  assert.equal(conflictPushes, 1, "accepted morning push must not resend");
+  await deliverDay(date, {
+    clock: () => at("14:00"),
+    pushReady: () => true,
+    sender: conflictSender,
+  });
+  assert.equal(
+    conflictPushes,
+    2,
+    "accepted overlap must still send afternoon push",
+  );
+  await deliverDay(date, {
+    clock: () => at("14:01"),
+    pushReady: () => true,
+    sender: conflictSender,
+  });
+  assert.equal(conflictPushes, 2, "accepted afternoon push must not resend");
+  await p.activity.update({
+    where: { id: clash.id },
+    data: { title: "Changed clash" },
+  });
+  await assert.rejects(
+    () =>
+      prepareDay(date, "as-admin", {
+        reader,
+        now: at("06:02"),
+        expectedHash: conflictPreview.hash,
+        acceptConflicts: true,
+      }),
+    /重新預覽/,
+  );
+  await assert.rejects(
+    () =>
+      prepareDay(date, "as-admin", {
+        reader,
+        now: at("06:02"),
+        automatic: true,
+      }),
+    /時間重疊/,
+  );
+  await p.afterSchoolRun.delete({ where: { date } });
+  await p.activity.deleteMany({ where: { id: { not: clash.id } } });
+  await p.announcement.deleteMany();
+  await p.calendarEvent.deleteMany();
+  await p.pushSubscription.delete({ where: { id: "conflict-device" } });
+  await p.notification.deleteMany();
   await p.activity.delete({ where: { id: clash.id } });
+  await assert.rejects(
+    () =>
+      prepareDay(date, "as-admin", {
+        reader: async () => [],
+        now: at("06:00"),
+        acceptConflicts: true,
+      }),
+    /表頭/,
+  );
   const preview = await previewDay(date, reader);
   assert.equal(preview.errors.length, 0);
   assert.match(preview.body, /1A #08/);

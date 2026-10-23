@@ -7,6 +7,9 @@ export async function POST(req: Request) {
     sameOrigin(req);
     const a = await actor();
     const v = await body(req, runSchema);
-    return prepareDay(v.date, a.id, { expectedHash: v.expectedHash });
+    return prepareDay(v.date, a.id, {
+      expectedHash: v.expectedHash,
+      acceptConflicts: v.acceptConflicts,
+    });
   });
 }
