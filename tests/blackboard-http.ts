@@ -139,6 +139,67 @@ async function main() {
     owner = await staff("bb-owner@example.invalid"),
     subject = await staff("bb-subject@example.invalid"),
     other = await staff("bb-other@example.invalid");
+
+  for (const [id, name] of [
+    ["bb-four", "4A"],
+    ["bb-three", "3A"],
+  ])
+    await p.class.create({
+      data: { id, name, classCode: id, teacherId: "bb-owner" },
+    });
+  await p.agentTimetable.createMany({
+    data: [
+      {
+        teacherName: "Group Physics",
+        dayOfWeek: 1,
+        period: 2,
+        classCode: "S4-X1",
+        subject: "物理",
+        term: "blackboard-test",
+      },
+      {
+        teacherName: "Group Biology",
+        dayOfWeek: 1,
+        period: 2,
+        classCode: "S4-X1",
+        subject: "生物",
+        term: "blackboard-test",
+      },
+      {
+        teacherName: "Group Chinese",
+        dayOfWeek: 1,
+        period: 2,
+        classCode: "S3- G1",
+        subject: "中文",
+        term: "blackboard-test",
+      },
+    ],
+  });
+  const fourRes = await request(
+    "/api/teacher/classes/bb-four/blackboard",
+    "GET",
+    undefined,
+    owner,
+  );
+  await status(fourRes, 200);
+  const four = (await fourRes.json()).snapshot.timetable;
+  assert.deepEqual(
+    four.rows.map((r: { subject: string }) => r.subject).sort(),
+    ["物理", "生物"].sort(),
+  );
+  assert.equal(four.rows[0].groupLabel, "選修一");
+  assert.match(four.warning, /分組/);
+  const threeRes = await request(
+    "/api/teacher/classes/bb-three/blackboard",
+    "GET",
+    undefined,
+    owner,
+  );
+  await status(threeRes, 200);
+  const three = (await threeRes.json()).snapshot.timetable;
+  assert.equal(three.rows.length, 1);
+  assert.equal(three.rows[0].subject, "中文");
+  assert.equal(three.rows[0].groupCode, "S3-G1");
   const base = "/api/teacher/classes/bb-a/blackboard";
   await status(await request("/api/blackboard"), 401);
   await status(await request(base, "GET", undefined, other), 403);

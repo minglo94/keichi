@@ -46,3 +46,9 @@
 與PR73整合時，package.json測試指令及schema.prisma末段出現衝突。已保留test:blackboard、test:after-school與兩套完整資料模型；Prisma產生成功。相對課後班版本的schema差異只有七個新增Blackboard資料表及其索引／外鍵，沒有DROP或既有欄位修改。
 
 合併版本驗證：黑板21項及課後班12項測試、TypeScript、lint（4項原有警告）、production build通過。合成PGlite基線可依序套用兩份migration；正式建置伺服器的黑板HTTP、課後班DB與HTTP整合通過。此輪Chromium啟動SIGSEGV，未能重跑畫面檢查；原PR桌面及手機驗證見前文。未操作正式資料庫。
+
+## 選修／分組科目顯示修正（2026-10-23）
+
+新增獨立匯入課表投影，不放寬用於教師權限的codeMatchesClass。相同年級的X/G記錄清楚標為年級分組參考，保留該節實際科目、組別及多組並行資料；不推論學生選科。S4-X1標為選修一，S3- G1可辨識為S3-G1。自動轉手動保留分組標記，編輯與展示頁均顯示標記。
+
+黑板25項測試通過；HTTP新增4A兩個選修科及3A中英數分組投影／跨年級隔離檢查，與原有黑板／課後班DB及HTTP測試一同通過。TypeScript、lint與production build通過，保留既有警告，建置仍用字型mock。聚焦審查無重大問題，編輯頁分組標記的輕微建議已補上。本輪未重試已知無法啟動的Chromium；無schema或正式資料庫變更。
