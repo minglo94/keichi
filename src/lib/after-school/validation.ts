@@ -31,5 +31,6 @@ export const runSchema = z
   .object({
     date: dateSchema,
     expectedHash: z.string().regex(/^[a-f0-9]{64}$/),
+    acceptConflicts: z.boolean().default(false),
   })
   .strict();

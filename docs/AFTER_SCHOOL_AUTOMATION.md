@@ -89,3 +89,15 @@ npm run test:after-school 執行純邏輯及Google adapter測試；另執行 npx
 - https://developers.google.com/workspace/guides/create-credentials
 - https://docs.cloud.google.com/scheduler/docs/creating
 - https://docs.cloud.google.com/sdk/gcloud/reference/scheduler/jobs/create/http
+
+## 確認接受時間重疊
+
+手動預覽把其他活動時間重疊列為黃色警告；勾選「我已知悉以上時間重疊，仍接受整理、刊登及建立已批活動，並按原定時間提醒學生」後才可執行。日期或重新預覽會清除勾選。無效名單、未能配對等錯誤不可略過。此操作不會取消另一活動。
+
+相同日期更新原有公告／已批活動。最近處理紀錄的「活動／錯誤」會以黃色顯示「備註：已確認接受時間重疊，仍按設定提醒」及班別學號／重疊活動。沿用既有狀態訊息欄，無schema變更、不需db push。
+
+確認綁定當次名單及具體衝突的預覽hash；活動時間、名稱或名單有變須重新預覽確認。同一READY記錄的相同hash和接受備註可在自動重讀時保留；新日期／新衝突不會自動接受。自動排程沒有通用略過衝突設定。
+
+推送程序只把已識別的接受備註當作可執行警告，一般錯誤及FAILED狀態仍阻止推送。08:15及下午（星期一14:00、星期二至五15:45）時段、已送出／結果不明不重送規則不變。
+
+驗證：13項課後班、29項黑板單元測試、TypeScript、lint（既有警告）、production build與合成資料庫／HTTP整合通過。包含確認前阻止、確認後刊登、狀態備註、同內容排程保留確認、變動衝突／舊預覽拒絕、非時間衝突錯誤不可略過、接受衝突後早上及下午推送且重跑不重送。獨立審查發現的備註阻擋推送問題已以回歸測試RED→GREEN修正。未直接操作正式資料庫或驗收正式部署。
