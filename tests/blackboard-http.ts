@@ -1,0 +1,496 @@
+// Run against an isolated synthetic database + app. Never point this at production.
+import assert from "node:assert/strict";
+import bcrypt from "bcryptjs";
+import { PrismaClient } from "@prisma/client";
+const p = new PrismaClient();
+const url = process.env.BLACKBOARD_TEST_URL || "http://127.0.0.1:3100";
+if (
+  !["localhost", "127.0.0.1"].includes(
+    new URL(process.env.DATABASE_URL || "http://invalid").hostname,
+  )
+)
+  throw new Error("Local synthetic database required");
+function cookies(r: Response) {
+  return r.headers
+    .getSetCookie()
+    .map((c) => c.split(";")[0])
+    .join("; ");
+}
+async function request(
+  path: string,
+  method = "GET",
+  body?: unknown,
+  cookie = "",
+  origin = url,
+) {
+  return fetch(url + path, {
+    method,
+    headers: {
+      origin,
+      cookie,
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+}
+async function staff(email: string) {
+  const csrf = await request("/api/auth/csrf");
+  const token = await csrf.json();
+  const r = await fetch(url + "/api/auth/callback/credentials", {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      cookie: cookies(csrf),
+      origin: url,
+    },
+    body: new URLSearchParams({
+      csrfToken: token.csrfToken,
+      email,
+      password: "synthetic123",
+      callbackUrl: url + "/teacher/dashboard",
+    }),
+  });
+  const c = cookies(r);
+  assert.ok(c.includes("session-token"), `teacher sign in failed: ${r.status}`);
+  return c;
+}
+async function status(r: Response, expected: number) {
+  if (r.status !== expected)
+    throw new Error(`Expected ${expected}, got ${r.status}: ${await r.text()}`);
+}
+async function main() {
+  const password = await bcrypt.hash("synthetic123", 4);
+  for (const [id, role, timetableName] of [
+    ["bb-admin", "ADMIN", null],
+    ["bb-owner", "TEACHER", null],
+    ["bb-subject", "TEACHER", "Subject Teacher"],
+    ["bb-other", "TEACHER", null],
+    ["bb-student", "STUDENT", null],
+  ] as const) {
+    await p.user.create({
+      data: {
+        id,
+        email: `${id}@example.invalid`,
+        name: id,
+        timetableName,
+        role,
+        password,
+        departments: [],
+        committees: [],
+      },
+    });
+  }
+  for (const [id, name] of [
+    ["bb-a", "1A"],
+    ["bb-b", "1B"],
+  ])
+    await p.class.create({
+      data: {
+        id,
+        name,
+        classCode: id,
+        teacherId: "bb-owner",
+        homeroomTeacherId: "bb-owner",
+      },
+    });
+  await p.classEnrollment.create({
+    data: { classId: "bb-a", studentId: "bb-student", classNumber: "08" },
+  });
+  await p.agentTimetable.create({
+    data: {
+      teacherName: "Subject Teacher",
+      dayOfWeek: 1,
+      period: 1,
+      classCode: "1A",
+      subject: "英文",
+      term: "blackboard-test",
+    },
+  });
+  await p.schoolSetting.upsert({
+    where: { key: "timetable.activeTerm" },
+    create: { key: "timetable.activeTerm", value: "blackboard-test" },
+    update: { value: "blackboard-test" },
+  });
+  const hw = await p.homework.create({
+    data: {
+      classId: "bb-a",
+      title: "練習一",
+      subject: "中文",
+      detail: "完成第一頁",
+      assignedOn: new Date("2026-10-23T00:00:00+08:00"),
+      recordedBy: "bb-owner",
+      byRole: "TEACHER",
+    },
+  });
+  await p.lessonRecord.create({
+    data: {
+      classId: "bb-a",
+      studentId: "bb-student",
+      kind: "MISSING_HOMEWORK",
+      date: new Date("2026-10-23T00:00Z"),
+      subject: "中文",
+      homeworkId: hw.id,
+      authorId: "bb-owner",
+      note: "DO NOT EXPOSE",
+    },
+  });
+  const admin = await staff("bb-admin@example.invalid"),
+    owner = await staff("bb-owner@example.invalid"),
+    subject = await staff("bb-subject@example.invalid"),
+    other = await staff("bb-other@example.invalid");
+  const base = "/api/teacher/classes/bb-a/blackboard";
+  await status(await request("/api/blackboard"), 401);
+  await status(await request(base, "GET", undefined, other), 403);
+  await status(
+    await request(
+      base + "/access",
+      "PUT",
+      { enabled: true, password: "classboard123", expectedVersion: 0 },
+      owner,
+      "https://evil.invalid",
+    ),
+    403,
+  );
+  await status(
+    await request(
+      base + "/access",
+      "PUT",
+      { enabled: true, password: "classboard123", expectedVersion: 0 },
+      owner,
+    ),
+    200,
+  );
+  const login = await request("/api/blackboard/login", "POST", {
+    className: "1a",
+    password: "classboard123",
+  });
+  await status(login, 200);
+  const board = cookies(login);
+  await status(
+    await request(
+      base + "/access",
+      "PUT",
+      { enabled: false, expectedVersion: 1 },
+      board,
+    ),
+    403,
+  );
+  const snapshot = await request(
+    "/api/blackboard?classId=bb-b",
+    "GET",
+    undefined,
+    board,
+  );
+  await status(snapshot, 200);
+  const j = await snapshot.json();
+  assert.equal(j.classId, "bb-a");
+  assert.equal(j.missing[0].number, "08");
+  assert.equal(JSON.stringify(j).includes("DO NOT EXPOSE"), false);
+  assert.equal(JSON.stringify(j).includes("bb-student"), false);
+  const card = {
+    type: "DETENTION",
+    title: "留堂安排",
+    body: "帶備功課",
+    color: "amber",
+    pinned: true,
+    subject: null,
+    startsAt: null,
+    endsAt: null,
+    payload: {
+      studentNumbers: ["08"],
+      date: "2026-10-26",
+      startTime: "15:45",
+      endTime: "16:30",
+      location: "201",
+    },
+  };
+  await status(
+    await request(
+      base + "/cards",
+      "POST",
+      { card, targetClassIds: ["bb-a"] },
+      board,
+    ),
+    403,
+  );
+  const created = await request(
+    base + "/cards",
+    "POST",
+    { card, targetClassIds: ["bb-a"] },
+    owner,
+  );
+  await status(created, 200);
+  const c = await created.json();
+  await status(
+    await request(
+      base + `/cards/${c.id}`,
+      "PUT",
+      {
+        card: { ...card, subject: "英文" },
+        targetClassIds: ["bb-a"],
+        expectedVersion: 1,
+      },
+      subject,
+    ),
+    403,
+  );
+  await status(
+    await request(
+      base + `/cards/${c.id}`,
+      "PUT",
+      { card, targetClassIds: ["bb-a"], expectedVersion: 9 },
+      owner,
+    ),
+    409,
+  );
+  await status(
+    await request(
+      "/api/teacher/classes/bb-b/blackboard/cards/" + c.id,
+      "PUT",
+      { card, targetClassIds: ["bb-b"], expectedVersion: 1 },
+      owner,
+    ),
+    404,
+  );
+  await status(
+    await request(
+      base + "/layout",
+      "PUT",
+      { items: [{ id: c.id, x: 0, y: 0, w: 4, h: 4 }], expectedVersion: 0 },
+      subject,
+    ),
+    403,
+  );
+  await status(
+    await request(
+      base + "/layout",
+      "PUT",
+      {
+        items: [{ id: "foreign", x: 0, y: 0, w: 4, h: 4 }],
+        expectedVersion: 0,
+      },
+      owner,
+    ),
+    400,
+  );
+  await status(
+    await request(
+      base + "/layout",
+      "PUT",
+      { items: [{ id: c.id, x: 0, y: 0, w: 4, h: 4 }], expectedVersion: 0 },
+      owner,
+    ),
+    200,
+  );
+  await status(
+    await request(
+      base + "/layout",
+      "PUT",
+      { items: [], expectedVersion: 0 },
+      owner,
+    ),
+    409,
+  );
+  await status(
+    await request(
+      base + "/timetable",
+      "PUT",
+      {
+        source: "MANUAL",
+        rows: [{ id: "e", day: 1, period: 1, subject: "英文" }],
+        expectedVersion: 0,
+      },
+      owner,
+    ),
+    200,
+  );
+  await status(
+    await request(
+      "/api/teacher/blackboard/schedule",
+      "PUT",
+      {
+        slots: [
+          {
+            id: "p1",
+            period: 1,
+            label: "第一節",
+            kind: "LESSON",
+            startTime: "08:25",
+            endTime: "09:00",
+          },
+        ],
+        expectedVersion: 0,
+      },
+      owner,
+    ),
+    403,
+  );
+  await status(
+    await request(
+      "/api/teacher/blackboard/schedule",
+      "PUT",
+      {
+        slots: [
+          {
+            id: "p1",
+            period: 1,
+            label: "第一節",
+            kind: "LESSON",
+            startTime: "08:25",
+            endTime: "09:00",
+          },
+        ],
+        expectedVersion: 0,
+      },
+      admin,
+    ),
+    200,
+  );
+  await p.agentTimetable.updateMany({
+    where: { teacherName: "Subject Teacher" },
+    data: { classCode: "1A/1B" },
+  });
+  await status(
+    await request(
+      "/api/teacher/classes/bb-b/blackboard",
+      "GET",
+      undefined,
+      subject,
+    ),
+    200,
+  );
+  await p.agentTimetable.updateMany({
+    where: { teacherName: "Subject Teacher" },
+    data: { classCode: "1AB" },
+  });
+  await status(await request(base, "GET", undefined, subject), 403);
+  await p.agentTimetable.updateMany({
+    where: { teacherName: "Subject Teacher" },
+    data: { classCode: "1A" },
+  });
+  const subjectCreated = await request(
+    base + "/cards",
+    "POST",
+    {
+      card: {
+        type: "MEMO",
+        title: "英文提醒",
+        body: "溫習",
+        subject: "英文",
+        payload: {},
+      },
+      targetClassIds: ["bb-a"],
+    },
+    subject,
+  );
+  await status(subjectCreated, 200);
+  await status(
+    await request(
+      base + "/cards",
+      "POST",
+      {
+        card: { type: "MEMO", title: "中文提醒", subject: "中文", payload: {} },
+        targetClassIds: ["bb-a"],
+      },
+      subject,
+    ),
+    403,
+  );
+  await status(
+    await request(
+      base + "/cards",
+      "POST",
+      {
+        card: { type: "ANNOUNCEMENT", title: "全級提醒", payload: {} },
+        targetClassIds: ["bb-a", "bb-b"],
+      },
+      admin,
+    ),
+    200,
+  );
+  await p.lessonRecord.updateMany({
+    where: { classId: "bb-a" },
+    data: { resolved: true },
+  });
+  const after = await (
+    await request("/api/blackboard", "GET", undefined, board)
+  ).json();
+  assert.equal(after.missing.length, 0);
+  assert.equal(after.cards.length, 3);
+  assert.equal(after.timetable.source, "MANUAL");
+  await status(
+    await request(
+      base + "/access",
+      "PUT",
+      { enabled: true, password: "newclass123", expectedVersion: 1 },
+      owner,
+    ),
+    200,
+  );
+  await status(await request("/api/blackboard", "GET", undefined, board), 401);
+  await status(
+    await request("/api/blackboard/login", "POST", {
+      className: "1A",
+      password: "classboard123",
+    }),
+    401,
+  );
+  const newLogin = await request("/api/blackboard/login", "POST", {
+    className: "1A",
+    password: "newclass123",
+  });
+  await status(newLogin, 200);
+  await status(
+    await request(
+      "/api/blackboard/logout",
+      "POST",
+      undefined,
+      cookies(newLogin),
+    ),
+    200,
+  );
+  await status(
+    await request("/api/blackboard", "GET", undefined, cookies(newLogin)),
+    401,
+  );
+  await p.class.create({
+    data: {
+      id: "bb-duplicate",
+      name: " 1a ",
+      classCode: "bb-dup",
+      teacherId: "bb-owner",
+    },
+  });
+  await status(
+    await request("/api/blackboard/login", "POST", {
+      className: "1A",
+      password: "newclass123",
+    }),
+    401,
+  );
+  await p.class.delete({ where: { id: "bb-duplicate" } });
+  await p.blackboardSession.create({
+    data: {
+      tokenHash: "test",
+      accessId: (
+        await p.blackboardAccess.findUniqueOrThrow({
+          where: { classId: "bb-a" },
+        })
+      ).id,
+      sessionVersion: 1,
+      expiresAt: new Date(0),
+    },
+  });
+  await p.class.delete({ where: { id: "bb-a" } });
+  assert.equal(await p.blackboardSession.count(), 0);
+  console.log(
+    "HTTP integration PASS: login, class isolation, privacy, author permissions, origin, versions, timetable, multi-class publication, reset, logout, duplicate class and cascade",
+  );
+}
+main()
+  .finally(() => p.$disconnect())
+  .catch((e) => {
+    console.error(e);
+    process.exitCode = 1;
+  });

@@ -266,6 +266,7 @@ model User {
   lessonRecordsAuthored LessonRecord[] @relation("LessonRecordsAuthored")
   homeworkRecorded      Homework[]     @relation("HomeworkRecorded")
   classRepOf            ClassRep[]     @relation("ClassRepOf")
+  blackboardCards BlackboardCard[]
 }
 
 // ─────────────────────────────────────────
@@ -440,6 +441,10 @@ model Class {
   lessonRecords     LessonRecord[]
   homework          Homework[]
   classReps         ClassRep[]
+  blackboardAccess BlackboardAccess?
+  blackboardTargets BlackboardCardTarget[]
+  blackboardLayout BlackboardLayout?
+  blackboardTimetable BlackboardTimetable?
 
   @@index([teacherId])
   @@index([homeroomTeacherId])
@@ -1575,4 +1580,75 @@ model ClassRep {
 
   @@unique([classId, studentId, subject])
   @@index([studentId])
+}
+
+
+// Class blackboards have a separate read-only identity from teacher NextAuth.
+model BlackboardAccess {
+  id String @id @default(cuid())
+  classId String @unique
+  passwordHash String
+  enabled Boolean @default(false)
+  sessionVersion Int @default(1)
+  version Int @default(1)
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  sessions BlackboardSession[]
+}
+model BlackboardSession {
+  id String @id @default(cuid())
+  tokenHash String @unique
+  accessId String
+  expiresAt DateTime
+  sessionVersion Int
+  access BlackboardAccess @relation(fields: [accessId], references: [id], onDelete: Cascade)
+  @@index([accessId])
+  @@index([expiresAt])
+}
+model BlackboardCard {
+  id String @id @default(cuid())
+  authorId String
+  type String
+  title String
+  body String @db.Text
+  subject String?
+  payload Json
+  color String @default("amber")
+  pinned Boolean @default(false)
+  link String?
+  startsAt DateTime?
+  endsAt DateTime?
+  archivedAt DateTime?
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  targets BlackboardCardTarget[]
+  @@index([authorId])
+  @@index([archivedAt, startsAt, endsAt])
+}
+model BlackboardCardTarget {
+  cardId String
+  classId String
+  card BlackboardCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  @@id([cardId, classId])
+  @@index([classId])
+}
+model BlackboardLayout {
+  classId String @id
+  items Json
+  version Int @default(1)
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+}
+model BlackboardTimetable {
+  classId String @id
+  source String @default("AUTO")
+  rows Json
+  version Int @default(1)
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+}
+model BlackboardSchedule {
+  key String @id @default("school")
+  slots Json
+  version Int @default(1)
 }
