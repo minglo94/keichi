@@ -106,6 +106,11 @@ export const timetableRowSchema = z
     period: z.number().int().min(0).max(10),
     label: z.string().trim().max(60).optional(),
     subject: z.string().trim().min(1).max(120),
+    groupCode: z
+      .string()
+      .regex(/^S[1-6]-[XG][1-9]\d?$/)
+      .optional(),
+    groupLabel: z.string().trim().min(1).max(60).optional(),
   })
   .strict()
   .refine((v) => v.period !== 0 || !!v.label, "具名節次必須填名稱");

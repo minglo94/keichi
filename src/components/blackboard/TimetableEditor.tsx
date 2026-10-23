@@ -32,6 +32,11 @@ export function TimetableEditor({
           <div className="space-y-2 mt-4">
             {rows.map((r, i) => (
               <div key={r.id} className="flex flex-wrap gap-2">
+                {r.groupCode && (
+                  <p className="w-full text-xs text-amber-800">
+                    {r.groupLabel} · {r.groupCode} · 年級分組參考
+                  </p>
+                )}
                 <select
                   aria-label="星期"
                   value={r.day}

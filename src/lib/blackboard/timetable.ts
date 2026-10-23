@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getLatestTerm } from "@/lib/agent-timetable";
-import { codeMatchesClass } from "./projection";
+import { projectImportedTimetable } from "./imported-timetable";
 import { timetableInputSchema, scheduleInputSchema } from "./validation";
 import type { BoardSnapshot } from "./types";
 export { getLessonState } from "./projection";
@@ -55,36 +55,21 @@ export async function getBoardTimetable(
       subject: true,
     },
   });
-  const seen = new Set<string>();
-  const rows = all
-    .filter((r) => codeMatchesClass(r.classCode, cls.name) && r.subject)
-    .filter((r) => {
-      const key = JSON.stringify([
-        r.dayOfWeek,
-        r.period,
-        r.periodLabel,
-        r.subject,
-      ]);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .map((r) => ({
-      id: r.id,
-      day: r.dayOfWeek,
-      period: r.period,
-      ...(r.periodLabel ? { label: r.periodLabel } : {}),
-      subject: r.subject!,
-    }));
+  const { rows, hasYearGroups } = projectImportedTimetable(all, cls.name);
   return {
     source: "AUTO",
     rows,
     slots,
     version: manual?.version || 0,
-    warning: !rows.length
-      ? "未找到明確班別課表，請使用手動課表"
-      : !slots.length
-        ? "請管理員設定課節時間"
-        : null,
+    warning:
+      [
+        !rows.length ? "未找到明確班別課表，請使用手動課表" : null,
+        !slots.length ? "請管理員設定課節時間" : null,
+        hasYearGroups
+          ? "年級分組課列出該節科目選項，請按實際選科／分組出席；並非全班須出席每個科目。"
+          : null,
+      ]
+        .filter(Boolean)
+        .join("；") || null,
   };
 }

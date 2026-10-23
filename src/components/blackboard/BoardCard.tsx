@@ -199,12 +199,21 @@ export function TimetableCard({
                         {r.label || `第${r.period}節`}{" "}
                         {slot ? `${slot.startTime}–${slot.endTime}` : ""}
                       </div>
+                      {r.groupCode && (
+                        <p className="text-xs mb-1">
+                          {r.groupLabel} · {r.groupCode} · 年級分組參考
+                        </p>
+                      )}
                       <strong>{r.subject}</strong>
                       {state.currentIds.includes(r.id) && (
-                        <span className="block text-xs mt-1">● 正在上課</span>
+                        <span className="block text-xs mt-1">
+                          {r.groupCode ? "● 本節分組課" : "● 正在上課"}
+                        </span>
                       )}
                       {state.nextIds.includes(r.id) && (
-                        <span className="block text-xs mt-1">下一節</span>
+                        <span className="block text-xs mt-1">
+                          {r.groupCode ? "下節分組課" : "下一節"}
+                        </span>
                       )}
                     </div>
                   );
