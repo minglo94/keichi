@@ -1,3 +1,4 @@
+import { managedResourceResponse } from "@/lib/after-school/managed"
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
@@ -51,6 +52,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+
+  const managed = await managedResourceResponse("calendar", params.id)
+  if (managed) return managed
 
   const event = await prisma.calendarEvent.findUnique({ where: { id: params.id } })
   if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -117,6 +121,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+
+  const managed = await managedResourceResponse("calendar", params.id)
+  if (managed) return managed
 
   const event = await prisma.calendarEvent.findUnique({ where: { id: params.id } })
   if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 })

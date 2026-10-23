@@ -1,3 +1,4 @@
+import { managedResourceResponse } from "@/lib/after-school/managed"
 import { isTeacherOrAdmin } from "@/lib/roles"
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
@@ -16,6 +17,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!isTeacherOrAdmin(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const managed = await managedResourceResponse("activity", params.id)
+  if (managed) return managed
 
   const activity = await prisma.activity.findUnique({ where: { id: params.id } })
   if (!activity) return NextResponse.json({ error: "Activity not found" }, { status: 404 })

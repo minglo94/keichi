@@ -166,6 +166,9 @@ model VerificationToken {
 // ─────────────────────────────────────────
 
 model User {
+  afterSchoolConfigurations AfterSchoolConfig[]
+  afterSchoolRuns AfterSchoolRun[]
+  afterSchoolReminders AfterSchoolReminder[]
   id            String    @id @default(cuid())
   email         String    @unique
   name          String? // 中文姓名 (primary display name)
@@ -293,6 +296,7 @@ model PushSubscription {
 }
 
 model Notification {
+  afterSchoolReminder AfterSchoolReminder?
   id        String   @id @default(cuid())
   userId    String
   type      String // "ANNOUNCEMENT" | "DOC_APPROVAL" | "BEHAVIOR" | "GENERAL"
@@ -636,6 +640,7 @@ enum AnnouncementStatus {
 }
 
 model Announcement {
+  afterSchoolRun AfterSchoolRun?
   id            String             @id @default(cuid())
   title         String
   body          String             @db.Text
@@ -1084,6 +1089,7 @@ enum ActivityType {
 }
 
 model Activity {
+  afterSchoolGroup AfterSchoolGroup?
   id           String         @id @default(cuid())
   title        String
   // Directly-created activities start PENDING and are hidden until a chair
@@ -1651,4 +1657,77 @@ model BlackboardSchedule {
   key String @id @default("school")
   slots Json
   version Int @default(1)
+}
+
+// Daily after-school processing; no student source names/notes are persisted.
+model AfterSchoolConfig {
+  key String @id @default("school")
+  spreadsheetId String
+  sheetTitle String @default("工作表1")
+  schoolYearStart Int @default(2026)
+  enabled Boolean @default(false)
+  approverId String
+  version Int @default(1)
+  updatedAt DateTime @updatedAt
+  approver User @relation(fields:[approverId],references:[id])
+}
+model AfterSchoolRun {
+  date String @id
+  status String @default("FAILED")
+  sourceHash String?
+  participants Json
+  announcementId String? @unique
+  actorId String
+  lastError String?
+  preparedAt DateTime?
+  automaticPreparedAt DateTime?
+  updatedAt DateTime @updatedAt
+  announcement Announcement? @relation(fields:[announcementId],references:[id],onDelete:SetNull)
+  actor User @relation(fields:[actorId],references:[id])
+  groups AfterSchoolGroup[]
+  reminders AfterSchoolReminder[]
+}
+model AfterSchoolGroup {
+  id String @id @default(cuid())
+  runDate String
+  type String
+  activityId String @unique
+  run AfterSchoolRun @relation(fields:[runDate],references:[date],onDelete:Cascade)
+  activity Activity @relation(fields:[activityId],references:[id])
+  @@unique([runDate,type])
+}
+model AfterSchoolReminder {
+  id String @id @default(cuid())
+  runDate String
+  stage String
+  studentId String
+  groupType String
+  payload Json
+  status String @default("PENDING")
+  notificationId String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  run AfterSchoolRun @relation(fields:[runDate],references:[date],onDelete:Cascade)
+  student User @relation(fields:[studentId],references:[id],onDelete:Cascade)
+  notification Notification? @relation(fields:[notificationId],references:[id],onDelete:SetNull)
+  attempts AfterSchoolPushAttempt[]
+  @@unique([runDate,stage,studentId])
+  @@index([runDate,stage,status])
+}
+model AfterSchoolPushAttempt {
+  id String @id @default(cuid())
+  reminderId String
+  subscriptionId String
+  endpointHash String
+  status String @default("PENDING")
+  statusCode Int?
+  updatedAt DateTime @updatedAt
+  reminder AfterSchoolReminder @relation(fields:[reminderId],references:[id],onDelete:Cascade)
+  @@unique([reminderId,endpointHash])
+  @@index([status,updatedAt])
+}
+model AfterSchoolLease {
+  key String @id
+  token String
+  expiresAt DateTime
 }

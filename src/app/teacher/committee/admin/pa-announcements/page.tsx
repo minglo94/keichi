@@ -1,5 +1,7 @@
 "use client"
 
+import { AfterSchoolPanel } from "@/components/teacher/pa/AfterSchoolPanel"
+import { AfterSchoolAnnouncementBody } from "@/components/teacher/pa/AfterSchoolAnnouncementBody"
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { StatsRow, PAView } from "@/components/teacher/pa/StatsRow"
@@ -192,7 +194,7 @@ export default function PAAnnouncementsPage() {
                 <span className="text-caption px-2 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">{STATUS_LABEL[a.status]}</span>
               )}
             </div>
-            <p className="text-body whitespace-pre-wrap mb-2" style={{ color: "var(--color-ink-700)" }}>{a.body}</p>
+            {/^\d{1,2}\/\d{1,2} 課後班名單$/.test(a.title) ? <AfterSchoolAnnouncementBody body={a.body}/> : <p className="text-body whitespace-pre-wrap mb-2" style={{ color: "var(--color-ink-700)" }}>{a.body}</p>}
             <p className="text-caption" style={{ color: "var(--color-ink-300)" }}>
               {a.author?.name ?? "老師"} · {formatDate(a.publishAt)}
             </p>
@@ -227,6 +229,8 @@ export default function PAAnnouncementsPage() {
 
       {/* Stats */}
       <StatsRow announcements={items} active={view} onSelect={setView} />
+
+      <AfterSchoolPanel onPublished={load}/>
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">

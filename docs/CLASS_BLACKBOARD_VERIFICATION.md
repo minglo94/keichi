@@ -40,3 +40,9 @@
 - 本環境 Git CLI 沒有寫入身份，使用已連接 GitHub 工具建立同一內容的整合提交及 PR。代價：遠端使用一個整合實作提交；保留原有規格及計劃提交。
 
 操作、資料保留及正式 SQL 套用方式見 CLASS_BLACKBOARD.md。
+
+## 合併至含課後班功能的main（2026-10-23）
+
+與PR73整合時，package.json測試指令及schema.prisma末段出現衝突。已保留test:blackboard、test:after-school與兩套完整資料模型；Prisma產生成功。相對課後班版本的schema差異只有七個新增Blackboard資料表及其索引／外鍵，沒有DROP或既有欄位修改。
+
+合併版本驗證：黑板21項及課後班12項測試、TypeScript、lint（4項原有警告）、production build通過。合成PGlite基線可依序套用兩份migration；正式建置伺服器的黑板HTTP、課後班DB與HTTP整合通過。此輪Chromium啟動SIGSEGV，未能重跑畫面檢查；原PR桌面及手機驗證見前文。未操作正式資料庫。
