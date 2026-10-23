@@ -438,6 +438,7 @@ export default function TeacherActivitiesPage() {
       {showForm && (
         <form onSubmit={create} className="card p-5 mb-6 space-y-4">
           <h3 className="text-h3">新增活動</h3>
+          <p className="text-caption" style={{ color: "var(--color-ink-500)" }}>管理員或所選組別主席建立的活動會自動批准並加入行事曆；其他教師建立的活動需由主席或管理員批核。</p>
           <div>
             <label className="text-caption block mb-1" style={{ color: "var(--color-ink-700)" }}>活動名稱 *</label>
             <input required value={title} onChange={(e) => setTitle(e.target.value)}

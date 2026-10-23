@@ -1,10 +1,11 @@
-import { isTeacherOrAdmin } from "@/lib/roles"
+import { isTeacherOrAdmin, isAdmin, canEditCommittee } from "@/lib/roles"
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { findClashes, windowOf, clashTitleMap } from "@/lib/clash"
 import { restrictedCommitteeWhere } from "@/lib/committee"
+import { publishActivityToCalendar } from "@/lib/activity-calendar"
 
 const createSchema = z.object({
   title:       z.string().min(1).max(200),
@@ -94,6 +95,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 400 })
   }
 
+  // Check current database role, not an old session claim, before auto-approval.
+  const actor = await prisma.user.findUnique({where:{id:session.user.id},select:{role:true}})
+  if (!actor || !isTeacherOrAdmin(actor.role)) return NextResponse.json({error:"Forbidden"},{status:403})
+  const autoApprove = data.committee
+    ? await canEditCommittee(session.user.id, actor.role, data.committee)
+    : isAdmin(actor.role)
   const { studentList, studentIds } = data
 
   const activity = await prisma.activity.create({
@@ -106,10 +113,9 @@ export async function POST(req: NextRequest) {
       committee:    data.committee,
       activityType: data.activityType,
       createdById:  session.user.id,
-      // Directly-created activities need a chair's sign-off. (Activities made
-      // by approving a NOTICE are created in the notice review route, which
-      // sets APPROVED explicitly — a chair already signed that one off.)
-      approval:     "PENDING",
+      approval:     autoApprove ? "APPROVED" : "PENDING",
+      approvedById: autoApprove ? session.user.id : null,
+      approvedAt:   autoApprove ? new Date() : null,
     },
     include: {
       _count:      { select: { assignments: true } },
@@ -166,5 +172,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (autoApprove) {
+    activity.calendarEventId = await publishActivityToCalendar(activity)
+  }
   return NextResponse.json(activity, { status: 201 })
 }

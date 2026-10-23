@@ -1,8 +1,7 @@
 "use client";
-import { useState } from "react";
-import { Pin, CalendarDays, BookOpen, Clock3 } from "lucide-react";
+import { Pin, BookOpen } from "lucide-react";
 import type { BoardSnapshot, PublicCard } from "@/lib/blackboard/types";
-import { getLessonState, slotForLesson } from "@/lib/blackboard/projection";
+export { TimetableCard } from "./DailyTimetable";
 const labels = {
   MEMO: "班級便條",
   ANNOUNCEMENT: "公告",
@@ -136,95 +135,6 @@ export function MissingCard({ snapshot }: { snapshot: BoardSnapshot }) {
           )}
         </section>
       ))}
-    </>
-  );
-}
-export function TimetableCard({
-  snapshot,
-  now,
-}: {
-  snapshot: BoardSnapshot;
-  now: Date;
-}) {
-  const [weekly, setWeekly] = useState(false);
-  const t = snapshot.timetable;
-  const state = getLessonState(t.rows, t.slots, now);
-  const day = new Date(now.getTime() + 8 * 3600000).getUTCDay();
-  const days = weekly ? [1, 2, 3, 4, 5] : [day];
-  return (
-    <>
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <h2 className="font-bold text-lg flex gap-2 items-center">
-          <CalendarDays size={18} />
-          班級時間表
-        </h2>
-        <button
-          className="rounded-full border border-current px-3 py-1 text-xs"
-          onClick={() => setWeekly(!weekly)}
-        >
-          {weekly ? "今日" : "全週"}
-        </button>
-      </div>
-      <p className="text-sm mb-3 flex gap-2 items-center">
-        <Clock3 size={14} />
-        {state.status}
-      </p>
-      {t.warning && (
-        <p className="text-xs text-amber-800 bg-amber-50 rounded p-2 mb-3">
-          {t.warning}
-        </p>
-      )}
-      <div className="overflow-auto">
-        <div
-          className={
-            weekly ? "grid grid-cols-5 min-w-[620px] gap-2" : "space-y-2"
-          }
-        >
-          {days.map((d) => (
-            <div key={d}>
-              <h3 className="text-xs font-semibold opacity-60 mb-2">
-                星期{"日一二三四五六"[d]}
-              </h3>
-              {t.rows
-                .filter((r) => r.day === d)
-                .sort((a, b) => a.period - b.period)
-                .map((r) => {
-                  const slot = slotForLesson(r, t.slots);
-                  return (
-                    <div
-                      key={r.id}
-                      className={`p-2 rounded-lg mb-2 text-sm ${state.currentIds.includes(r.id) ? "bg-emerald-700 text-white" : state.nextIds.includes(r.id) ? "bg-emerald-100" : "bg-stone-50"}`}
-                    >
-                      <div className="text-xs opacity-60">
-                        {r.label || `第${r.period}節`}{" "}
-                        {slot ? `${slot.startTime}–${slot.endTime}` : ""}
-                      </div>
-                      {r.groupCode && (
-                        <p className="text-xs mb-1">
-                          {r.groupLabel} · {r.groupCode} · 年級分組參考
-                        </p>
-                      )}
-                      <strong>{r.subject}</strong>
-                      {state.currentIds.includes(r.id) && (
-                        <span className="block text-xs mt-1">
-                          {r.groupCode ? "● 本節分組課" : "● 正在上課"}
-                        </span>
-                      )}
-                      {state.nextIds.includes(r.id) && (
-                        <span className="block text-xs mt-1">
-                          {r.groupCode ? "下節分組課" : "下一節"}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              {!t.rows.some((r) => r.day === d) && (
-                <p className="text-xs opacity-60">沒有課堂</p>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
     </>
   );
 }
