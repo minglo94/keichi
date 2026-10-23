@@ -11,7 +11,7 @@ function SessionWatcher() {
   const pathname   = usePathname()
 
   useEffect(() => {
-    if (status === "unauthenticated" && pathname !== "/login") {
+    if (status === "unauthenticated" && pathname !== "/login" && !pathname.startsWith("/blackboard")) {
       router.replace("/login")
     }
   }, [status, pathname, router])

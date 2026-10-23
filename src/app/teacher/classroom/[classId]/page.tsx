@@ -186,6 +186,7 @@ function Desktop() {
         <Link href="/teacher/classroom" className="text-caption" style={{ color: "var(--color-ink-400)" }}>← 課堂</Link>
         <span style={{ color: "var(--color-ink-300)" }}>/</span>
         <h1 className="text-h1">{data.cls.name}</h1>
+        <Link href={`/teacher/classes/${classId}/blackboard`} className="text-caption underline" style={{color:"var(--color-ink-500)"}}>班級黑板</Link>
         <span className="text-caption px-2 py-0.5 rounded-pill" style={{ background: "var(--color-surface-2)", color: "var(--color-ink-500)" }}>
           {data.cls.isForm ? "班別" : "教學組"} · {VIA[data.via]}
         </span>
