@@ -4,10 +4,15 @@ import { Maximize, LogOut, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useBoardSnapshot } from "./useBoardSnapshot";
 import { BoardGrid } from "./BoardGrid";
+import { DayActivities } from "./DayActivities";
+import { hkYmd } from "@/lib/hk-date";
+import { shiftDate } from "@/lib/blackboard/daily";
 import { defaultBoardItems } from "@/lib/blackboard/grid";
 export default function BoardViewer() {
   const { snapshot, error, lastUpdated, retry } = useBoardSnapshot();
   const [now, setNow] = useState(new Date());
+  const [chosenDate, setChosenDate] = useState<string | null>(null);
+  const selectedDate = chosenDate || hkYmd(now);
   const [actionError, setActionError] = useState("");
   const router = useRouter();
   useEffect(() => {
@@ -89,6 +94,46 @@ export default function BoardViewer() {
           </button>
         </div>
       </header>
+      <nav
+        aria-label="查看日期"
+        className="max-w-[1800px] mx-auto mb-5 flex flex-wrap items-center gap-3 text-[#f5f1db]"
+      >
+        <button
+          disabled={selectedDate <= "2000-01-01"}
+          className="rounded border border-white/30 px-3 py-2 disabled:opacity-40"
+          onClick={() => setChosenDate(shiftDate(selectedDate, -1))}
+        >
+          前一天
+        </button>
+        <label className="flex items-center gap-2">
+          查看日期
+          <input
+            aria-label="查看日期"
+            type="date"
+            min="2000-01-01"
+            max="2100-12-31"
+            value={selectedDate}
+            onChange={(e) => {
+              if (e.target.validity.valid && e.target.value)
+                setChosenDate(e.target.value);
+            }}
+            className="rounded px-3 py-2 text-stone-900"
+          />
+        </label>
+        <button
+          disabled={selectedDate >= "2100-12-31"}
+          className="rounded border border-white/30 px-3 py-2 disabled:opacity-40"
+          onClick={() => setChosenDate(shiftDate(selectedDate, 1))}
+        >
+          後一天
+        </button>
+        <button
+          className="rounded bg-white/15 px-3 py-2"
+          onClick={() => setChosenDate(null)}
+        >
+          今日
+        </button>
+      </nav>
       {(error || actionError) && (
         <div
           role="alert"
@@ -102,7 +147,15 @@ export default function BoardViewer() {
       )}
       <div className="max-w-[1800px] mx-auto">
         {snapshot ? (
-          <BoardGrid snapshot={snapshot} items={items} now={now} />
+          <>
+            <DayActivities date={selectedDate} className={snapshot.className} />
+            <BoardGrid
+              snapshot={snapshot}
+              items={items}
+              now={now}
+              selectedDate={selectedDate}
+            />
+          </>
         ) : (
           <p className="text-white/80 p-8">
             {error ? "未能載入班級資訊" : "正在準備班級黑板…"}

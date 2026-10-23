@@ -228,6 +228,219 @@ async function main() {
   });
   await status(login, 200);
   const board = cookies(login);
+  await p.user.create({
+    data: {
+      id: "bb-day-other-student",
+      email: "bb-day-other-student@example.invalid",
+      role: "STUDENT",
+      departments: [],
+      committees: [],
+    },
+  });
+  await p.classEnrollment.create({
+    data: {
+      classId: "bb-b",
+      studentId: "bb-day-other-student",
+      classNumber: "17",
+    },
+  });
+  // Date-scoped class activities: approved participants only, no private notes/identities.
+  const activityInput = {
+    title: "Daily ECA",
+    startTime: "2026-10-26T08:00:00.000Z",
+    endTime: "2026-10-26T09:00:00.000Z",
+    location: "303",
+    committee: "ECA",
+    studentIds: ["bb-student"],
+  };
+  const adminCreate = await request(
+    "/api/activities",
+    "POST",
+    activityInput,
+    admin,
+  );
+  await status(adminCreate, 201);
+  const createdActivity = await adminCreate.json();
+  assert.equal(createdActivity.approval, "APPROVED");
+  assert.equal(createdActivity.approvedById, "bb-admin");
+  assert.ok(createdActivity.approvedAt);
+  assert.ok(createdActivity.calendarEventId);
+  await p.activityAssignment.create({
+    data: { activityId: createdActivity.id, studentId: "bb-day-other-student" },
+  });
+  await p.user.update({ where: { id: "bb-admin" }, data: { role: "STUDENT" } });
+  await status(
+    await request("/api/activities", "POST", activityInput, admin),
+    403,
+  );
+  await p.user.update({ where: { id: "bb-admin" }, data: { role: "ADMIN" } });
+  await p.committeeRole.create({
+    data: { userId: "bb-owner", committee: "ECA", isChair: true },
+  });
+  const chairCreate = await request(
+    "/api/activities",
+    "POST",
+    { ...activityInput, title: "Chair ECA" },
+    owner,
+  );
+  await status(chairCreate, 201);
+  assert.equal((await chairCreate.json()).approval, "APPROVED");
+  const otherCommittee = await request(
+    "/api/activities",
+    "POST",
+    { ...activityInput, committee: "IT" },
+    owner,
+  );
+  await status(otherCommittee, 201);
+  assert.equal((await otherCommittee.json()).approval, "PENDING");
+  const teacherCreate = await request(
+    "/api/activities",
+    "POST",
+    activityInput,
+    other,
+  );
+  await status(teacherCreate, 201);
+  assert.equal((await teacherCreate.json()).approval, "PENDING");
+  const noCommittee = await request(
+    "/api/activities",
+    "POST",
+    { title: "Admin no committee", startTime: activityInput.startTime },
+    admin,
+  );
+  await status(noCommittee, 201);
+  assert.equal((await noCommittee.json()).approval, "APPROVED");
+  for (const [id, approval, committee, start, end, assigned] of [
+    [
+      "daily-night",
+      "APPROVED",
+      "ECA",
+      "2026-10-25T15:30:00Z",
+      "2026-10-25T16:30:00Z",
+      true,
+    ],
+    ["daily-null", "APPROVED", "ECA", "2026-10-25T16:00:00Z", null, true],
+    [
+      "daily-private",
+      "APPROVED",
+      "STUDENT_SUPPORT",
+      "2026-10-26T08:00:00Z",
+      null,
+      true,
+    ],
+    [
+      "daily-other-class",
+      "APPROVED",
+      "ECA",
+      "2026-10-26T08:00:00Z",
+      null,
+      false,
+    ],
+    [
+      "daily-end-boundary",
+      "APPROVED",
+      "ECA",
+      "2026-10-25T15:00:00Z",
+      "2026-10-25T16:00:00Z",
+      true,
+    ],
+  ] as const) {
+    await p.activity.create({
+      data: {
+        id,
+        title: id,
+        approval,
+        committee,
+        startTime: new Date(start),
+        endTime: end ? new Date(end) : null,
+        createdById: "bb-admin",
+        description: "DO NOT EXPOSE",
+        ...(assigned
+          ? {
+              assignments: {
+                create: { studentId: "bb-student", note: "DO NOT EXPOSE" },
+              },
+            }
+          : {}),
+      },
+    });
+  }
+  await p.activityAssignment.create({
+    data: {
+      activityId: "daily-other-class",
+      studentId: "bb-day-other-student",
+    },
+  });
+  await p.afterSchoolRun.create({
+    data: {
+      date: "2026-10-26",
+      status: "PREPARED",
+      participants: [],
+      actorId: "bb-admin",
+    },
+  });
+  await p.afterSchoolGroup.create({
+    data: {
+      runDate: "2026-10-26",
+      type: "TOOL_UP",
+      activityId: createdActivity.id,
+    },
+  });
+  await status(await request("/api/blackboard/day?date=2026-10-26"), 401);
+  await status(
+    await request(
+      "/api/blackboard/day?date=2026-02-29",
+      "GET",
+      undefined,
+      board,
+    ),
+    400,
+  );
+  await status(
+    await request(
+      "/api/blackboard/day?date=2026-10-26&date=2026-10-27",
+      "GET",
+      undefined,
+      board,
+    ),
+    400,
+  );
+  const dayResponse = await request(
+    "/api/blackboard/day?date=2026-10-26&classId=bb-b",
+    "GET",
+    undefined,
+    board,
+  );
+  await status(dayResponse, 200);
+  const dayData = await dayResponse.json();
+  assert.equal(dayData.date, "2026-10-26");
+  assert.equal(dayData.activities.length, 4);
+  assert.deepEqual(
+    dayData.activities.find((a: any) => a.id === createdActivity.id)
+      .studentNumbers,
+    ["08"],
+  );
+  assert.equal(
+    dayData.activities.find((a: any) => a.id === createdActivity.id).kind,
+    "AFTER_SCHOOL",
+  );
+  const publicDay = JSON.stringify(dayData);
+  for (const forbidden of [
+    "bb-student",
+    "DO NOT EXPOSE",
+    "daily-private",
+    "daily-other-class",
+    "daily-end-boundary",
+  ])
+    assert.ok(!publicDay.includes(forbidden), forbidden);
+  const emptyDay = await request(
+    "/api/blackboard/day?date=2026-10-27",
+    "GET",
+    undefined,
+    board,
+  );
+  await status(emptyDay, 200);
+  assert.equal((await emptyDay.json()).activities.length, 0);
+
   await status(
     await request(
       base + "/access",

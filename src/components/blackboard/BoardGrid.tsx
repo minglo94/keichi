@@ -23,12 +23,14 @@ export function BoardGrid({
   editable = false,
   onChange,
   now = new Date(),
+  selectedDate,
 }: {
   snapshot: BoardSnapshot;
   items: GridItem[];
   editable?: boolean;
   onChange?: (items: GridItem[]) => void;
   now?: Date;
+  selectedDate?: string;
 }) {
   const grid = useRef<HTMLDivElement>(null);
   function replace(index: number, item: GridItem) {
@@ -77,7 +79,13 @@ export function BoardGrid({
         else if (item.id === "missing")
           content = <MissingCard snapshot={snapshot} />;
         else if (item.id === "timetable")
-          content = <TimetableCard snapshot={snapshot} now={now} />;
+          content = (
+            <TimetableCard
+              snapshot={snapshot}
+              now={now}
+              selectedDate={selectedDate}
+            />
+          );
         else if (card)
           content = <NoteCard card={card} className={snapshot.className} />;
         else return null;
