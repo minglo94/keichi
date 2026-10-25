@@ -407,6 +407,7 @@ export default function TeacherActivitiesPage() {
           <p className="text-body mt-0.5" style={{ color: "var(--color-ink-500)" }}>建立活動、指派學生，並按日期、班別或學生查看誰要出席</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- CSV download requires a native browser request. */}
           <a
             href="/api/activities/export"
             className="text-caption px-3 py-2 rounded-input border"
