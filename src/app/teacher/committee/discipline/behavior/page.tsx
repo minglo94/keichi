@@ -199,6 +199,7 @@ export default function BehaviorPage() {
             style={{ border: "1px solid var(--color-border)", color: "var(--color-ink-500)" }}>
             ⬆ 匯入 CSV
           </button>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- CSV download requires a native browser request. */}
           <a href="/api/behavior-records/export"
             className="text-caption px-3 py-2 rounded-input border"
             style={{ border: "1px solid var(--color-border)", color: "var(--color-ink-500)" }}>
