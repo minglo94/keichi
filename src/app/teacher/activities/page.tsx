@@ -104,7 +104,7 @@ export default function TeacherActivitiesPage() {
   const [searchQ,    setSearchQ]      = useState("")
   const [weekdayFilter, setWeekdayFilter] = useState<number | null>(null)
   const [sortBy,     setSortBy]       = useState<"date" | "students" | "title">("date")
-  const [view,       setView]         = useState<ViewMode>("all")
+  const [view,       setView]         = useState<ViewMode>("today")
   const [pickedDate, setPickedDate]   = useState<string>("")
   const [formFilter,  setFormFilter]  = useState<string | null>(null)
   const [classFilter, setClassFilter] = useState<string | null>(null)
@@ -634,7 +634,7 @@ export default function TeacherActivitiesPage() {
       {!loading && (activities.length > 0 || pendingNotices.length > 0) && (
         <div className="flex gap-2 items-center flex-wrap mb-3">
           <div className="flex gap-1 p-1 rounded-input" style={{ background: "var(--color-surface-2)" }}>
-            {([["all","全部"],["today","今日"],["week","本週"],["class","按班別"],["student","按學生"],["pending",`待批核${pendingCount ? ` (${pendingCount})` : ""}`]] as const).map(([id, label]) => (
+            {([["today","今日"],["week","本週"],["all","全部"],["class","按班別"],["student","按學生"],["pending",`待批核${pendingCount ? ` (${pendingCount})` : ""}`]] as const).map(([id, label]) => (
               <button key={id} onClick={() => setView(id)}
                 className="px-3 py-1.5 text-caption font-medium rounded-input transition-colors"
                 style={{
