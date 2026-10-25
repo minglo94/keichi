@@ -51,7 +51,7 @@ export async function previewDay(date: string, reader: Reader = readSource) {
     select: {
       classId: true,
       classNumber: true,
-      student: { select: { id: true, role: true } },
+      student: { select: { id: true, role: true, name: true } },
       class: { select: { name: true } },
     },
   });
@@ -110,6 +110,11 @@ export async function previewDay(date: string, reader: Reader = readSource) {
       a.activityId.localeCompare(b.activityId),
   );
   const normalized = resolved.rows;
+  const studentNames = new Map(enrollments.map((e) => [e.student.id, e.student.name]));
+  const displayNames = new Map(normalized.map((r) => [
+    `${r.className}#${r.number}`, studentNames.get(r.studentId) || null,
+  ]));
+  const announcement = formatAnnouncement(date, normalized, displayNames);
   const hash = createHash("sha256")
     .update(
       JSON.stringify({
@@ -117,6 +122,7 @@ export async function previewDay(date: string, reader: Reader = readSource) {
         version: config.version,
         rows: normalized,
         conflicts,
+        announcementBody: announcement.body,
       }),
     )
     .digest("hex");
@@ -129,7 +135,7 @@ export async function previewDay(date: string, reader: Reader = readSource) {
     warnings,
     hash,
     configVersion: config.version,
-    ...formatAnnouncement(date, normalized),
+    ...announcement,
     schedule: s,
   };
 }
@@ -456,3 +462,4 @@ export async function prepareDay(
     };
   });
 }
+

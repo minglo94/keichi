@@ -7,6 +7,19 @@ import {
   dueStages,
 } from "../src/lib/after-school/model";
 const headers = ["班別", "學號", "姓名", "日期", "類型", "出席", "備註"];
+test("announcement displays matched names by class and number, with explicit missing-name fallback", () => {
+  const rows = [
+    {className:"1A",number:"08",type:"TOOL_UP" as const},
+    {className:"1A",number:"15",type:"TOOL_UP" as const},
+    {className:"2F",number:"23",type:"POSITIVE" as const},
+  ];
+  const names = new Map([["1A#08"," 陳小明 "],["1A#15","李小華"],["2F#23"," "]]);
+  const result = formatAnnouncement("2026-10-26",rows,names);
+  assert.match(result.body,/1A #08 陳小明、#15 李小華/);
+  assert.match(result.body,/2F #23（姓名未設定）/);
+  assert.match(formatAnnouncement("2026-10-27",rows,names).body,/4:00 pm/);
+  assert.ok(!formatAnnouncement("2026-10-26",rows,new Map([["1A#08","陳\n小明"]])).body.includes("陳\n小明"));
+});
 test("Monday lasts one hour and afternoon reminder is 14:00", () => {
   assert.deepEqual(scheduleFor("2026-10-26"), {
     start: "15:30",
@@ -105,3 +118,4 @@ test("first reminder is 08:15, stages do not overlap or catch up after start", (
     [],
   );
 });
+
