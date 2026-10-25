@@ -1,3 +1,4 @@
+import { studentActivityViews } from "@/lib/after-school/student-view"
 import { managedResourceResponse } from "@/lib/after-school/managed"
 import { isTeacherOrAdmin, isAdmin, canEditCommittee } from "@/lib/roles"
 import { canManageActivity } from "@/lib/activity-perm"
@@ -37,7 +38,9 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   // Students only see their own assignment
   if (session.user.role === "STUDENT") {
     const mine = activity.assignments.filter((a) => a.studentId === session.user.id)
-    return NextResponse.json({ ...activity, assignments: mine })
+    if (activity.approval !== "APPROVED" || !mine.length) return NextResponse.json({error:"Not found"},{status:404})
+    const [studentView] = await studentActivityViews([{ ...activity, assignments: mine }])
+    return NextResponse.json(studentView)
   }
 
   return NextResponse.json(activity)
@@ -107,3 +110,4 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
 
   return NextResponse.json({ deleted: true })
 }
+

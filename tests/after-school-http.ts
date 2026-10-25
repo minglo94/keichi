@@ -223,6 +223,32 @@ async function main() {
   });
   assert.equal(run.groups.length, 2);
   const activity = run.groups[0].activity;
+  // Student copies are projected server-side, including already-published text.
+  const namedAnnouncement = await p.announcement.findUniqueOrThrow({where:{id:run.announcementId!}});
+  assert.match(namedAnnouncement.body,/陳小明/);
+  await p.announcement.update({where:{id:run.announcementId!},data:{publishAt:new Date('2026-01-01T00:00:00Z')}});
+  const studentAnnouncements = await request('/api/announcements',student);
+  assert.equal(studentAnnouncements.status,200);
+  const studentAnnouncement=(await studentAnnouncements.json()).find((a:any)=>a.id===run.announcementId);
+  assert.ok(studentAnnouncement);assert.match(studentAnnouncement.body,/1A #08/);
+  assert.ok(!JSON.stringify(studentAnnouncement).includes('陳小明'));
+  const studentDetail=await request('/api/announcements/'+run.announcementId,student);
+  assert.equal(studentDetail.status,200);assert.ok(!(await studentDetail.text()).includes('陳小明'));
+  const staffDetail=await request('/api/announcements/'+run.announcementId,chair);
+  assert.equal(staffDetail.status,200);assert.ok((await staffDetail.text()).includes('陳小明'));
+  await p.announcement.update({where:{id:run.announcementId!},data:{status:'DRAFT'}});
+  assert.equal((await request('/api/announcements/'+run.announcementId,student)).status,404);
+  await p.announcement.update({where:{id:run.announcementId!},data:{status:'PUBLISHED',publishAt:namedAnnouncement.publishAt}});
+  assert.equal((await request('/api/announcements/'+run.announcementId,student)).status,404);
+  assert.equal((await request('/api/activities/'+activity.id,student)).status,404);
+  await p.activityAssignment.create({data:{activityId:activity.id,studentId:'as-student'}});
+  const studentActivityList=await request('/api/activities',student);
+  assert.equal(studentActivityList.status,200);
+  const studentActivity=(await studentActivityList.json()).find((a:any)=>a.id===activity.id);
+  assert.ok(studentActivity);assert.ok(!JSON.stringify(studentActivity).includes('陳小明'));
+  const studentActivityDetail=await request('/api/activities/'+activity.id,student);
+  assert.equal(studentActivityDetail.status,200);assert.ok(!(await studentActivityDetail.text()).includes('陳小明'));
+
   for (const [path, method] of [
     ["/api/activities/" + activity.id, "PATCH"],
     ["/api/activities/" + activity.id, "DELETE"],
@@ -314,3 +340,4 @@ async function main() {
   }
 }
 main().finally(() => p.$disconnect());
+
