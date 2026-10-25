@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { getPusherClient } from "@/lib/pusher-client"
@@ -219,20 +220,20 @@ export default function StudentDashboard() {
           <div className="bg-white rounded-2xl p-4 shadow-sm border">
             <h2 className="font-semibold mb-3">快速入口</h2>
             <div className="grid grid-cols-2 gap-3">
-              <a href="/student/missions" className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
+              <Link href="/student/missions" className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
                 <span className="text-2xl">🗺️</span>
                 <div>
                   <div className="text-sm font-medium">衝關地圖</div>
                   <div className="text-xs text-gray-500">賺積點</div>
                 </div>
-              </a>
-              <a href="/student/flashcards" className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl">
+              </Link>
+              <Link href="/student/flashcards" className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl">
                 <span className="text-2xl">🃏</span>
                 <div>
                   <div className="text-sm font-medium">閃卡複習</div>
                   <div className="text-xs text-gray-500">{dueCount} 張待複習</div>
                 </div>
-              </a>
+              </Link>
             </div>
           </div>
 
