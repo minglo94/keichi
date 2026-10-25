@@ -40,7 +40,7 @@
     "heic2any": "^0.0.4",
     "jszip": "^3.10.1",
     "lucide-react": "^1.14.0",
-    "next": "14.2.30",
+    "next": "^15.5.28",
     "next-auth": "^5.0.0-beta.25",
     "pdf-lib": "^1.17.1",
     "pizzip": "^3.1.7",
@@ -52,7 +52,8 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "resend": "^6.17.2",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@types/file-saver": "^2.0.7",
@@ -62,7 +63,7 @@
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.20",
     "eslint": "^8",
-    "eslint-config-next": "14.2.30",
+    "eslint-config-next": "^15.5.28",
     "file-saver": "^2.0.5",
     "postcss": "^8",
     "prisma": "^6.2.1",
