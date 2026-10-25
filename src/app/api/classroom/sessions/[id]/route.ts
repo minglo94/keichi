@@ -7,7 +7,8 @@ import { z } from "zod"
 const schema = z.object({ ended: z.boolean() })
 
 // PATCH — 完結課堂 (or reopen). Only the teacher who ran the lesson, or an admin.
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

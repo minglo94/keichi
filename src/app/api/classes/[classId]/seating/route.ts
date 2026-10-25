@@ -9,12 +9,13 @@ import { emptyLayout, parseLayout, reconcile, type SeatingLayout } from "@/lib/s
 import { isFormClassName } from "@/lib/form-class"
 import { dbErrorMessage } from "@/lib/db-error"
 
-type Params = { params: { classId: string } }
+type Params = { params: Promise<{ classId: string }> }
 
 // GET — the class, its roster, and its seating layout, with anyone no longer
 // on the roster cleared out of their seat (reconcile). Everything the 課堂
 // desktop needs to render, in one call.
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -53,7 +54,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 // PUT — replace the default layout. Seating is always written whole: a chart
 // is edited in bursts and saved as one arrangement.
-export async function PUT(req: NextRequest, { params }: Params) {
+export async function PUT(req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

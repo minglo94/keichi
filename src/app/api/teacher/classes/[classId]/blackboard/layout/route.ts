@@ -8,8 +8,9 @@ import { requireBoardTeacher, teacherSubjects } from "@/lib/blackboard/access";
 import { prisma } from "@/lib/prisma";
 import { layoutInputSchema } from "@/lib/blackboard/validation";
 import { saveBoardLayout } from "@/lib/blackboard/layout";
-type Ctx = { params: { classId: string } };
-export async function PUT(req: Request, { params }: Ctx) {
+type Ctx = { params: Promise<{ classId: string }> };
+export async function PUT(req: Request, props: Ctx) {
+  const params = await props.params;
   return boardApi(async () => {
     requireSameOrigin(req);
     await requireBoardTeacher(params.classId, "manage");

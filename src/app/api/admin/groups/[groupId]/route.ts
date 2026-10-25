@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
-type RouteParams = { params: { groupId: string } }
+type RouteParams = { params: Promise<{ groupId: string }> }
 
 const updateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -18,7 +18,8 @@ const updateSchema = z.object({
 
 const teacherSelect = { id: true, name: true, image: true, email: true } as const
 
-export async function GET(_req: NextRequest, { params }: RouteParams) {
+export async function GET(_req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -39,7 +40,8 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   return NextResponse.json(group)
 }
 
-export async function PUT(req: NextRequest, { params }: RouteParams) {
+export async function PUT(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -55,7 +57,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   return NextResponse.json(group)
 }
 
-export async function DELETE(_req: NextRequest, { params }: RouteParams) {
+export async function DELETE(_req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

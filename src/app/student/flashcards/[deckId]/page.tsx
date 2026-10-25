@@ -1,11 +1,14 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useParams } from "next/navigation"
+
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link"
 
 type Card = { id: string; front: string; back: string }
 
-export default function DeckPage({ params }: { params: { deckId: string } }) {
+export default function DeckPage() {
+  const params = useParams<{ deckId: string }>();
   const [cards, setCards] = useState<Card[]>([])
   const [adding, setAdding] = useState(false)
   const [front, setFront] = useState("")

@@ -8,8 +8,9 @@ import { prisma } from "@/lib/prisma";
 import { requireBoardTeacher } from "@/lib/blackboard/access";
 import bcrypt from "bcryptjs";
 import { accessInputSchema } from "@/lib/blackboard/validation";
-type Ctx = { params: { classId: string } };
-export async function PUT(req: Request, { params }: Ctx) {
+type Ctx = { params: Promise<{ classId: string }> };
+export async function PUT(req: Request, props: Ctx) {
+  const params = await props.params;
   return boardApi(async () => {
     requireSameOrigin(req);
     await requireBoardTeacher(params.classId, "manage");

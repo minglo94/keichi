@@ -8,9 +8,10 @@ const cardSchema = z.object({
   back: z.string().min(1),
 })
 
-type RouteParams = { params: { deckId: string } }
+type RouteParams = { params: Promise<{ deckId: string }> }
 
-export async function GET(_req: NextRequest, { params }: RouteParams) {
+export async function GET(_req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -21,7 +22,8 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   return NextResponse.json(cards)
 }
 
-export async function POST(req: NextRequest, { params }: RouteParams) {
+export async function POST(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

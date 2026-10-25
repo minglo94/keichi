@@ -14,7 +14,8 @@ import { hkYmd } from "@/lib/hk-date"
 // The sheet mirrors the screen exactly, 講台 included: if the teacher has the
 // 講台 at the bottom on screen, it is at the bottom on paper. Clever flipping is
 // how printed seating charts end up backwards.
-export async function GET(_req: NextRequest, { params }: { params: { classId: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ classId: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

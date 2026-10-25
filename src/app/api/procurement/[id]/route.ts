@@ -11,7 +11,8 @@ const patchSchema = z.object({
 })
 
 // PATCH — admin updates status (approve / reject / mark ordered)
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "僅管理員可審批採購申請" }, { status: 403 })
@@ -47,7 +48,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE — requester (if still pending) or admin may remove
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

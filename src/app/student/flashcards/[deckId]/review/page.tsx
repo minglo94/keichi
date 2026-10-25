@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useParams } from "next/navigation"
+
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation"
 import { fetchArray } from "@/lib/fetch-json"
 
@@ -13,7 +15,8 @@ const GRADE_LABELS = [
   { grade: 3, label: "輕鬆記得", color: "bg-green-500 text-white" },
 ] as const
 
-export default function ReviewPage({ params }: { params: { deckId: string } }) {
+export default function ReviewPage() {
+  const params = useParams<{ deckId: string }>();
   const router = useRouter()
   const [cards, setCards] = useState<Card[]>([])
   const [current, setCurrent] = useState(0)

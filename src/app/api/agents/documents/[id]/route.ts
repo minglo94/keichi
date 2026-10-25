@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma"
 
 // GET — fetch one agent document with its full content.
 // Scoped: the owner, or any admin, may read it.
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

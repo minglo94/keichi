@@ -10,7 +10,7 @@ const reviewSchema = z.object({
   classId: z.string(),
 })
 
-type RouteParams = { params: { deckId: string } }
+type RouteParams = { params: Promise<{ deckId: string }> }
 
 export async function POST(req: NextRequest, { params: _params }: RouteParams) {
   const session = await auth()

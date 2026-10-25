@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useParams } from "next/navigation"
+
+import { useEffect, useState } from "react";
 import Link from "next/link"
 import { AgentMarkdown } from "@/components/teacher/AgentMarkdown"
 
@@ -25,7 +27,8 @@ const APPROVAL_BADGE: Record<DocStatus, { label: string; color: string }> = {
   REJECTED:     { label: "已退回",   color: "var(--color-discipline)"    },
 }
 
-export default function AgentDocumentPage({ params }: { params: { id: string } }) {
+export default function AgentDocumentPage() {
+  const params = useParams<{ id: string }>();
   const [doc,     setDoc]     = useState<AgentDoc | null>(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)

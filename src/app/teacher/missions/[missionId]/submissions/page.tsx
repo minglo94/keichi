@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useParams } from "next/navigation"
+
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation"
 
 type Submission = {
@@ -13,7 +15,8 @@ type Submission = {
   student: { id: string; name: string; image: string | null }
 }
 
-export default function SubmissionsPage({ params }: { params: { missionId: string } }) {
+export default function SubmissionsPage() {
+  const params = useParams<{ missionId: string }>();
   const router = useRouter()
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [selected, setSelected] = useState<Submission | null>(null)

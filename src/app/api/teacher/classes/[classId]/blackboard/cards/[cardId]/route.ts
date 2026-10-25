@@ -7,8 +7,9 @@ import {
 import { z } from "zod";
 import { cardWriteSchema } from "@/lib/blackboard/validation";
 import { updateBoardCard, archiveBoardCard } from "@/lib/blackboard/cards";
-type Ctx = { params: { classId: string; cardId: string } };
-export async function PUT(req: Request, { params }: Ctx) {
+type Ctx = { params: Promise<{ classId: string; cardId: string }> };
+export async function PUT(req: Request, props: Ctx) {
+  const params = await props.params;
   return boardApi(async () => {
     requireSameOrigin(req);
     const v = await readBody(req, cardWriteSchema);
@@ -22,7 +23,8 @@ export async function PUT(req: Request, { params }: Ctx) {
     );
   });
 }
-export async function DELETE(req: Request, { params }: Ctx) {
+export async function DELETE(req: Request, props: Ctx) {
+  const params = await props.params;
   return boardApi(async () => {
     requireSameOrigin(req);
     const v = await readBody(

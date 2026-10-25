@@ -5,10 +5,11 @@ import { requireSessionAccess } from "@/lib/class-perm"
 import { awardSession, withdrawSession } from "@/lib/lesson-award"
 import { dbErrorMessage } from "@/lib/db-error"
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // POST — 發放積點: pay out this lesson's pending 課堂表現.
-export async function POST(_req: NextRequest, { params }: Params) {
+export async function POST(_req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -25,7 +26,8 @@ export async function POST(_req: NextRequest, { params }: Params) {
 }
 
 // DELETE — 撤回: remove exactly the points this lesson paid out.
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(_req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

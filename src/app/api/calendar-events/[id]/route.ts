@@ -26,7 +26,8 @@ const patchSchema = z.object({
 
 // GET — a single event. Previously absent, which left the by-id endpoint as a
 // way around the list route's audience filtering.
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -47,7 +48,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json(event)
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -116,7 +118,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json(updated)
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -165,7 +168,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   // the deleter's) — a committee chair or admin other than the author may be
   // the one deleting it.
   try {
-    if (googleEventId && await isConnected(authorId)) {
+    if (googleEventId && (await isConnected(authorId))) {
       const conn = await prisma.googleCalendarConnection.findUnique({
         where:  { userId: authorId },
         select: { googleCalendarId: true },

@@ -5,7 +5,7 @@ import { isTeacherOrAdmin } from "@/lib/roles"
 import { requireClassAccess } from "@/lib/class-perm"
 import { z } from "zod"
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 async function load(id: string) {
   return prisma.lessonRecord.findUnique({
@@ -21,7 +21,8 @@ const schema = z.object({
 })
 
 // PATCH — edit a note, mark 已跟進, or change a pending performance score.
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -57,7 +58,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 // DELETE — remove a mistaken record. A paid-out performance row must be
 // withdrawn first, so points and records never disagree.
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(_req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

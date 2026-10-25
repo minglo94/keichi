@@ -8,7 +8,8 @@ import type { ActivityType } from "@prisma/client"
 // GET — suggest alternative dates for an activity so the assigned students
 // don't clash and the weekday matches the school rule (課外 → Mon/Tue,
 // 學科 → Wed–Fri). Optional ?type=ECA|ACADEMIC overrides a not-yet-set type.
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!isTeacherOrAdmin(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })

@@ -5,9 +5,10 @@ import { evaluatePrompt } from "@/lib/claude"
 import { aiRateLimit } from "@/lib/rate-limit"
 import type { PromptMissionContent, PromptSubmissionContent } from "@/types/mission"
 
-type RouteParams = { params: { missionId: string } }
+type RouteParams = { params: Promise<{ missionId: string }> }
 
-export async function POST(req: NextRequest, { params }: RouteParams) {
+export async function POST(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || session.user.role !== "STUDENT") {
     return NextResponse.json({ error: "Students only" }, { status: 403 })

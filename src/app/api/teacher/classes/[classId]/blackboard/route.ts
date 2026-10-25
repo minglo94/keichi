@@ -9,8 +9,9 @@ import { prisma } from "@/lib/prisma";
 import { getBoardSnapshot, publicCard } from "@/lib/blackboard/snapshot";
 import type { TeacherBoard } from "@/lib/blackboard/types";
 export const dynamic = "force-dynamic";
-type Ctx = { params: { classId: string } };
-export async function GET(_req: Request, { params }: Ctx) {
+type Ctx = { params: Promise<{ classId: string }> };
+export async function GET(_req: Request, props: Ctx) {
+  const params = await props.params;
   return boardApi(async () => {
     const a = await requireBoardTeacher(params.classId, "publish");
     const [snapshot, cards, access, schedule, classes, subjects] =

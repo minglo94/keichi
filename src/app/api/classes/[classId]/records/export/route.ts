@@ -13,12 +13,13 @@ import { toCsv } from "@/lib/csv"
 // formula when a teacher opens the file. Signed numbers like "-1" are left alone.
 const safe = (s: string | null | undefined) => {
   const v = s ?? ""
-  return /^[=+@\t\r]/.test(v) || /^-[^\d]/.test(v) ? `'${v}` : v
+  return /^[=+@\t\r]/.test(v) || /^-[^\d]/.test(v) ? `'${v}` : v;
 }
 
 // GET — the same 回顧 filter as the screen, as CSV (BOM included, so Excel
 // opens the Chinese correctly).
-export async function GET(req: NextRequest, { params }: { params: { classId: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ classId: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

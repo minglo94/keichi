@@ -11,9 +11,10 @@ import {
   sendSubmissionFeedback,
 } from '@/lib/pusher'
 
-type RouteParams = { params: { subId: string } }
+type RouteParams = { params: Promise<{ subId: string }> }
 
-export async function PUT(req: NextRequest, { params }: RouteParams) {
+export async function PUT(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || session.user.role !== 'TEACHER') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

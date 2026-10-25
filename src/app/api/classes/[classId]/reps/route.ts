@@ -5,7 +5,7 @@ import { isTeacherOrAdmin } from "@/lib/roles"
 import { requireClassAccess } from "@/lib/class-perm"
 import { z } from "zod"
 
-type Params = { params: { classId: string } }
+type Params = { params: Promise<{ classId: string }> }
 
 async function gate(classId: string) {
   const session = await auth()
@@ -17,7 +17,8 @@ async function gate(classId: string) {
 }
 
 // GET — this class's 課代表／科代表.
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, props: Params) {
+  const params = await props.params;
   const g = await gate(params.classId)
   if (g instanceof NextResponse) return g
   const reps = await prisma.classRep.findMany({
@@ -34,7 +35,8 @@ const schema = z.object({
 })
 
 // POST — designate a 課代表. Must be on this class's roster.
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   const g = await gate(params.classId)
   if (g instanceof NextResponse) return g
   const parsed = schema.safeParse(await req.json().catch(() => ({})))
@@ -60,7 +62,8 @@ export async function POST(req: NextRequest, { params }: Params) {
 }
 
 // DELETE ?id= — remove a 課代表.
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, props: Params) {
+  const params = await props.params;
   const g = await gate(params.classId)
   if (g instanceof NextResponse) return g
   const id = new URL(req.url).searchParams.get("id")

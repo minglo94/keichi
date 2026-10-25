@@ -9,7 +9,7 @@ import { notifyMany } from "@/lib/notify"
 import { dbErrorMessage } from "@/lib/db-error"
 import { z } from "zod"
 
-type Params = { params: { classId: string } }
+type Params = { params: Promise<{ classId: string }> }
 
 const HOMEWORK_SELECT = {
   id: true, classId: true, subject: true, title: true, detail: true,
@@ -34,7 +34,8 @@ async function withCounts<T extends { id: string }>(items: T[]) {
 
 // GET — this class's homework, newest first. Teachers with access only; the
 // student view (Phase 3) has its own route scoped to the student's classes.
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -66,7 +67,8 @@ const schema = z.object({
 // POST — record homework. A teacher with access to the class, or a 課代表 of
 // it (for their own subject). Who recorded it and in what role is taken from
 // the session, never from the request.
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -80,7 +82,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (gate instanceof NextResponse) return gate
     byRole = "TEACHER"
   } else {
-    if (!await canRecordHomework(params.classId, session.user.id, d.subject ?? null)) {
+    if (!(await canRecordHomework(params.classId, session.user.id, d.subject ?? null))) {
       return NextResponse.json({ error: "只有此班的課代表可以記錄功課（科代表只可記錄自己的科目）" }, { status: 403 })
     }
     byRole = "REP"

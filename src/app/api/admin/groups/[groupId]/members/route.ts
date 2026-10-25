@@ -4,11 +4,12 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
-type RouteParams = { params: { groupId: string } }
+type RouteParams = { params: Promise<{ groupId: string }> }
 
 const addSchema = z.object({ userId: z.string() })
 
-export async function POST(req: NextRequest, { params }: RouteParams) {
+export async function POST(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -24,7 +25,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   return NextResponse.json(member, { status: 201 })
 }
 
-export async function DELETE(req: NextRequest, { params }: RouteParams) {
+export async function DELETE(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

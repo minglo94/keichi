@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma"
 import { notifyMany } from "@/lib/notify"
 
 // POST — send a notice for sign-off: DRAFT|REJECTED → PENDING.
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

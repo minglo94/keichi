@@ -13,7 +13,8 @@ const schema = z.object({
   studentList: z.string().optional(), // Raw text from Excel paste
 })
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!isTeacherOrAdmin(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -26,12 +27,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // Creator, the committee's chair, or an admin — the same set that may approve
   // or delete it. Creator-only meant nobody could add students to an activity
   // the system had created on their behalf from an approved notice.
-  if (!await canManageActivity(activity, session.user)) {
+  if (!(await canManageActivity(activity, session.user))) {
     return NextResponse.json({ error: "只有建立者、組別主席或管理員可指派學生" }, { status: 403 })
   }
 
   const { studentIds = [], studentList } = schema.parse(await req.json())
-  
+
   let targetStudentIds = [...studentIds]
 
   // Resolve pasted rows through the shared resolver, so this box and the

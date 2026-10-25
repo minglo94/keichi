@@ -9,7 +9,8 @@ import { dbErrorMessage } from "@/lib/db-error"
 // GET — 回顧: records for this class over a date range, plus the roster so the
 // 按學生 view can show students with nothing recorded (a clean row is
 // information too).
-export async function GET(req: NextRequest, { params }: { params: { classId: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ classId: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

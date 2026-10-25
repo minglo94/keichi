@@ -151,7 +151,8 @@ const CONFIGS: Record<CommitteeType, CommitteeConfig> = {
   },
 }
 
-export default async function CommitteePage({ params }: { params: { type: string } }) {
+export default async function CommitteePage(props: { params: Promise<{ type: string }> }) {
+  const params = await props.params;
   const slug = params.type as Slug
   const committeeType = SLUG_TO_ENUM[slug]
   if (!committeeType) notFound()

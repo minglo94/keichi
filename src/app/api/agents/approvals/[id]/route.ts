@@ -11,7 +11,8 @@ const schema = z.object({
   rejectionReason: z.string().optional(),
 })
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "僅管理員可批核文件" }, { status: 403 })

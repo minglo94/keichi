@@ -16,9 +16,10 @@ const missionSchema = z.object({
   order: z.number().int().default(0),
 })
 
-type RouteParams = { params: { classId: string } }
+type RouteParams = { params: Promise<{ classId: string }> }
 
-export async function GET(_req: NextRequest, { params }: RouteParams) {
+export async function GET(_req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -39,7 +40,8 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   return NextResponse.json(missions)
 }
 
-export async function POST(req: NextRequest, { params }: RouteParams) {
+export async function POST(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

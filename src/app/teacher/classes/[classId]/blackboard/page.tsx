@@ -1,4 +1,5 @@
 import BoardEditor from "@/components/blackboard/BoardEditor";
-export default function Page({ params }: { params: { classId: string } }) {
+export default async function Page(props: { params: Promise<{ classId: string }> }) {
+  const params = await props.params;
   return <BoardEditor classId={params.classId} />;
 }

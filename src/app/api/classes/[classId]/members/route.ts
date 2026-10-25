@@ -5,9 +5,10 @@ import { prisma } from "@/lib/prisma"
 import { requireClassAccess } from "@/lib/class-perm"
 import { z } from "zod"
 
-type RouteParams = { params: { classId: string } }
+type RouteParams = { params: Promise<{ classId: string }> }
 
-export async function GET(_req: NextRequest, { params }: RouteParams) {
+export async function GET(_req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -35,7 +36,8 @@ const addSchema = z.union([
 // 班主任, or a teacher who teaches it per the timetable. Reads stay open to any
 // teacher — notice-gen and the points page list rosters across classes, and
 // the same names are already searchable via /api/students/search.
-export async function POST(req: NextRequest, { params }: RouteParams) {
+export async function POST(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -83,7 +85,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: RouteParams) {
+export async function DELETE(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

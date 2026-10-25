@@ -4,10 +4,11 @@ import { prisma } from "@/lib/prisma"
 import { broadcastPointsAwarded } from "@/lib/pusher"
 import { z } from "zod"
 
-type RouteParams = { params: { classId: string } }
+type RouteParams = { params: Promise<{ classId: string }> }
 
 // GET — leaderboard + personal history
-export async function GET(_req: NextRequest, { params }: RouteParams) {
+export async function GET(_req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -43,7 +44,8 @@ const awardSchema = z.object({
 })
 
 // POST — award points
-export async function POST(req: NextRequest, { params }: RouteParams) {
+export async function POST(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

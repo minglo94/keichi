@@ -25,10 +25,10 @@ import { z } from "zod"
 // A rep sees only the roster and this homework's outcomes. Nothing else about
 // classmates (absences from lessons, performance) is exposed.
 
-type Params = { params: { classId: string; hwId: string } }
+type Params = { params: Promise<{ classId: string; hwId: string }> }
 type User = { id: string; role: Parameters<typeof isTeacherOrAdmin>[0] }
 
-async function authorise(params: Params["params"], user: User) {
+async function authorise(params: Awaited<Params["params"]>, user: User) {
   const hw = await prisma.homework.findFirst({
     where:  { id: params.hwId, classId: params.classId },
     select: {
@@ -42,7 +42,7 @@ async function authorise(params: Params["params"], user: User) {
     if (gate instanceof NextResponse) return gate
     return { hw, teacher: true }
   }
-  if (!await canRecordHomework(params.classId, user.id, hw.subject)) {
+  if (!(await canRecordHomework(params.classId, user.id, hw.subject))) {
     return NextResponse.json({ error: "只有此班的課代表可以收功課（科代表只限自己的科目）" }, { status: 403 })
   }
   return { hw, teacher: false }
@@ -61,7 +61,8 @@ async function outcomes(hwId: string, me: string) {
 }
 
 // GET — the roster and each student's outcome.
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const ok = await authorise(params, session.user)
@@ -89,7 +90,8 @@ const schema = z.object({
 // PUT — set one student's outcome. Idempotent: setting what's already there
 // changes nothing. A rep may only change outcomes they recorded themselves,
 // and not once a teacher has marked them 已跟進.
-export async function PUT(req: NextRequest, { params }: Params) {
+export async function PUT(req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const ok = await authorise(params, session.user)

@@ -7,13 +7,13 @@ import { canRecordHomework } from "@/lib/class-rep"
 import { hkDayStart } from "@/lib/hk-date"
 import { z } from "zod"
 
-type Params = { params: { classId: string; hwId: string } }
+type Params = { params: Promise<{ classId: string; hwId: string }> }
 
 /**
  * Who may change this homework: a teacher with access to the class, always;
  * the 課代表 who recorded it, only until a teacher has confirmed it in class.
  */
-async function authorise(params: Params["params"], user: { id: string; role: Parameters<typeof isTeacherOrAdmin>[0] }) {
+async function authorise(params: Awaited<Params["params"]>, user: { id: string; role: Parameters<typeof isTeacherOrAdmin>[0] }) {
   const hw = await prisma.homework.findFirst({
     where: { id: params.hwId, classId: params.classId },
     select: { id: true, recordedBy: true, confirmedAt: true, subject: true },
@@ -27,7 +27,7 @@ async function authorise(params: Params["params"], user: { id: string; role: Par
   if (hw.recordedBy !== user.id || hw.confirmedAt) {
     return NextResponse.json({ error: "只可以修改自己記錄、而老師未覆核的功課" }, { status: 403 })
   }
-  if (!await canRecordHomework(params.classId, user.id, hw.subject)) {
+  if (!(await canRecordHomework(params.classId, user.id, hw.subject))) {
     return NextResponse.json({ error: "你已不是此班的課代表" }, { status: 403 })
   }
   return { hw, teacher: false }
@@ -41,7 +41,8 @@ const schema = z.object({
   confirmed: z.boolean().optional(),   // teachers only: 已在課堂覆核
 })
 
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const ok = await authorise(params, session.user)
@@ -68,7 +69,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   return NextResponse.json(updated)
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(_req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const ok = await authorise(params, session.user)

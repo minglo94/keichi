@@ -7,7 +7,7 @@ import { dbErrorMessage } from "@/lib/db-error"
 import { RECORD_KINDS } from "@/lib/lesson-records"
 import { z } from "zod"
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 const RECORD_SELECT = {
   id: true, studentId: true, kind: true, tag: true, note: true, points: true,
@@ -16,7 +16,8 @@ const RECORD_SELECT = {
 } as const
 
 // GET — everything recorded in this lesson.
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -51,7 +52,8 @@ const schema = z.object({
 //  - 欠交 the same homework is recorded once per student, however many lessons
 //    it is noted in.
 //  - 欠帶書本 and 課堂表現 can legitimately happen several times.
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user || !isTeacherOrAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

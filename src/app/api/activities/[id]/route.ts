@@ -17,7 +17,8 @@ const patchSchema = z.object({
   activityType: z.enum(["ECA", "ACADEMIC"]).nullable().optional(),
 })
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -42,7 +43,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json(activity)
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!isTeacherOrAdmin(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -53,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const activity = await prisma.activity.findUnique({ where: { id: params.id } })
   if (!activity) return NextResponse.json({ error: "Not found" }, { status: 404 })
   // Same set as DELETE and the approval routes.
-  if (!await canManageActivity(activity, session.user)) {
+  if (!(await canManageActivity(activity, session.user))) {
     return NextResponse.json({ error: "只有建立者、組別主席或管理員可修改" }, { status: 403 })
   }
 
@@ -73,7 +75,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json(updated)
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!isTeacherOrAdmin(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
