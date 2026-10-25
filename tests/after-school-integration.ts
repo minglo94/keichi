@@ -37,7 +37,7 @@ async function main() {
       data: {
         id,
         email: `${id}@example.invalid`,
-        name: "PRIVATE",
+        name: id === "as-s1" ? "陳小明" : id === "as-s2" ? "李小華" : "Synthetic Student",
         role,
         departments: [],
         committees: [],
@@ -195,6 +195,11 @@ async function main() {
   const preview = await previewDay(date, reader);
   assert.equal(preview.errors.length, 0);
   assert.match(preview.body, /1A #08/);
+  assert.match(preview.body, /1A #08 陳小明/);
+  assert.ok(!JSON.stringify(preview.rows).includes("陳小明"));
+  await p.user.update({where:{id:"as-s1"},data:{name:"陳大明"}});
+  assert.notEqual((await previewDay(date,reader)).hash,preview.hash);
+  await p.user.update({where:{id:"as-s1"},data:{name:"陳小明"}});
   assert.ok(!preview.body.includes("PRIVATE"));
   await prepareDay(date, "as-admin", {
     reader,
@@ -486,3 +491,4 @@ main()
     console.error(e);
     process.exitCode = 1;
   });
+

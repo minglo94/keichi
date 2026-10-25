@@ -145,7 +145,11 @@ export function parseRows(values: unknown[][], date: string, year: number) {
   if (rows.length > 1000) errors.push("當日名單超過1000人，請由管理員處理");
   return { rows, errors };
 }
-export function formatAnnouncement(date: string, rows: Participant[]) {
+export function formatAnnouncement(
+  date: string,
+  rows: Participant[],
+  names?: ReadonlyMap<string, string | null>,
+) {
   const s = scheduleFor(date);
   if (!s) throw new Error("週末不安排課後班");
   const [, m, d] = date.split("-");
@@ -158,13 +162,19 @@ export function formatAnnouncement(date: string, rows: Participant[]) {
       .forEach((r) =>
         classes.set(r.className, [
           ...(classes.get(r.className) || []),
-          r.number,
+          names
+            ? (() => {
+                const name = names.get(`${r.className}#${r.number}`)
+                  ?.replace(/\s+/g, " ").trim();
+                return `#${r.number}${name ? ` ${name}` : "（姓名未設定）"}`;
+              })()
+            : r.number,
         ]),
       );
     return `${TYPES[type].title} (${TYPES[type].location})\n${
       classes.size
         ? Array.from(classes)
-            .map(([name, n]) => `${name} #${n.join("、")}`)
+            .map(([name, n]) => `${name} ${names ? "" : "#"}${n.join("、")}`)
             .join("\n")
         : "（今日沒有安排）"
     }`;
@@ -174,3 +184,4 @@ export function formatAnnouncement(date: string, rows: Participant[]) {
 export function currentPhase(now: Date) {
   return { date: hkYmd(now), time: hkHm(now) };
 }
+
