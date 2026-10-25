@@ -1,3 +1,4 @@
+import { studentAnnouncementViews } from "@/lib/after-school/student-view"
 import { managedResourceResponse } from "@/lib/after-school/managed"
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
@@ -37,6 +38,14 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   })
   if (!ann) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
+  if (session.user.role === "STUDENT") {
+    if (ann.status !== "PUBLISHED" || ann.publishAt > new Date()) return NextResponse.json({error:"Not found"},{status:404})
+    if (ann.target !== "ALL") {
+      if (ann.target !== "CLASS" || !ann.classId || !(await prisma.classEnrollment.findFirst({where:{classId:ann.classId,studentId:session.user.id},select:{id:true}}))) return NextResponse.json({error:"Not found"},{status:404})
+    }
+    const [studentView] = await studentAnnouncementViews([ann])
+    return NextResponse.json(studentView)
+  }
   return NextResponse.json(ann)
 }
 
@@ -80,3 +89,4 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
 
   return NextResponse.json({ deleted: true })
 }
+

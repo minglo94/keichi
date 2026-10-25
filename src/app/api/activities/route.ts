@@ -1,3 +1,4 @@
+import { studentActivityViews } from "@/lib/after-school/student-view"
 import { isTeacherOrAdmin, isAdmin, canEditCommittee } from "@/lib/roles"
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { startTime: "asc" },
     })
-    return NextResponse.json(studentActivities)
+    return NextResponse.json(await studentActivityViews(studentActivities))
   }
 
   // TEACHER：自己建立的活動；ADMIN：全部活動
@@ -177,3 +178,4 @@ export async function POST(req: NextRequest) {
   }
   return NextResponse.json(activity, { status: 201 })
 }
+

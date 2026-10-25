@@ -1,3 +1,4 @@
+import { studentAnnouncementViews } from "@/lib/after-school/student-view"
 import { isTeacherOrAdmin } from "@/lib/roles"
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
     ],
   })
 
-  return NextResponse.json(announcements)
+  return NextResponse.json(session.user.role === "STUDENT" ? await studentAnnouncementViews(announcements) : announcements)
 }
 
 export async function POST(req: NextRequest) {
@@ -162,3 +163,4 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(announcement, { status: 201 })
 }
+
