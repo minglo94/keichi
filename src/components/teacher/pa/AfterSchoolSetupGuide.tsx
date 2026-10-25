@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function AfterSchoolSetupGuide() {
   return (
     <details className="border rounded-lg p-4 text-sm space-y-3 [overflow-wrap:anywhere]">
@@ -75,12 +77,12 @@ export function AfterSchoolSetupGuide() {
         >
           Cloud Scheduler教學
         </a>
-        <a
+        <Link
           className="underline"
           href="/teacher/committee/admin/pa-announcements"
         >
           前往行政公告預覽
-        </a>
+        </Link>
       </p>
     </details>
   );
