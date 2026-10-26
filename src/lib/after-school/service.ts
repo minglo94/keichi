@@ -1,7 +1,8 @@
+import { missedAttendance, mergeMakeup, type MakeupParticipant } from "./carryover";
 import { overlaps, windowOf } from "@/lib/clash";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { hkYmd, hkDayStart } from "@/lib/hk-date";
+import { hkYmd, hkDayStart, hkWeekday } from "@/lib/hk-date";
 import {
   parseRows,
   formatAnnouncement,
@@ -17,7 +18,7 @@ import { withLease, approverAllowed } from "./repository";
 import { AfterSchoolError } from "./http";
 import { conflictNote } from "./conflicts";
 export type Reader = typeof readSource;
-export async function previewDay(date: string, reader: Reader = readSource) {
+export async function previewDay(date: string, reader: Reader = readSource, now = new Date()) {
   const config = await prisma.afterSchoolConfig.findUnique({
     where: { key: "school" },
   });
@@ -39,6 +40,7 @@ export async function previewDay(date: string, reader: Reader = readSource) {
       rows: [] as ResolvedParticipant[],
       errors: [] as string[],
       warnings: [] as string[],
+      attendanceChecked: false,
       hash: "",
       configVersion: config.version,
       title: "",
@@ -47,6 +49,32 @@ export async function previewDay(date: string, reader: Reader = readSource) {
     };
   const values = await reader(config);
   const parsed = parseRows(values, date, config.schoolYearStart);
+  const attendanceChecked = date === hkYmd(now) && now >= instant(date, "06:00");
+  let sourceRows: MakeupParticipant[] = parsed.rows;
+  if (attendanceChecked) {
+    const prior = await prisma.afterSchoolRun.findUnique({where:{date},select:{automaticPreparedAt:true,participants:true}});
+    if (prior?.automaticPreparedAt && prior.automaticPreparedAt >= instant(date,"06:00") && Array.isArray(prior.participants)) {
+      const saved = prior.participants as unknown as MakeupParticipant[];
+      const carry = saved.filter(r=>r && typeof r.makeupFrom==='string');
+      for (const from of new Set(carry.map(r=>r.makeupFrom!))) {
+        const merged=mergeMakeup(sourceRows,carry.filter(r=>r.makeupFrom===from),from);
+        sourceRows=merged.rows;parsed.errors.push(...merged.errors);
+      }
+    } else {
+      let previous = new Date(+hkDayStart(date)-86400000);
+      for (let days=0; days<370; days++) {
+        const previousDate=hkYmd(previous);
+        const holiday=await prisma.nonTeachingPeriod.findFirst({where:{type:"HOLIDAY",startDate:{lte:previous},endDate:{gte:previous}},select:{id:true}});
+        if (![0,6].includes(hkWeekday(previousDate)) && !holiday) {
+          const missed=missedAttendance(values,previousDate,config.schoolYearStart);
+          const merged=mergeMakeup(sourceRows,missed.rows,previousDate);
+          sourceRows=merged.rows;parsed.errors.push(...missed.errors,...merged.errors);break;
+        }
+        if(days===369)parsed.errors.push("未能找到上一上課日，請檢查校曆");
+        previous=new Date(+previous-86400000);
+      }
+    }
+  }
   const enrollments = await prisma.classEnrollment.findMany({
     select: {
       classId: true,
@@ -56,7 +84,7 @@ export async function previewDay(date: string, reader: Reader = readSource) {
     },
   });
   const resolved = resolveParticipants(
-    parsed.rows,
+    sourceRows,
     enrollments.map((e) => ({
       studentId: e.student.id,
       role: e.student.role,
@@ -133,6 +161,7 @@ export async function previewDay(date: string, reader: Reader = readSource) {
     rows: normalized,
     errors,
     warnings,
+    attendanceChecked,
     hash,
     configVersion: config.version,
     ...announcement,
@@ -161,7 +190,7 @@ export async function prepareDay(
   return withLease(date, async (token) => {
     let p: Awaited<ReturnType<typeof previewDay>>;
     try {
-      p = await previewDay(date, options.reader);
+      p = await previewDay(date, options.reader, now);
       if (options.expectedHash && options.expectedHash !== p.hash)
         throw new AfterSchoolError(
           409,
@@ -252,7 +281,7 @@ export async function prepareDay(
         where: { date },
         data: {
           lastError: note,
-          ...(options.automatic ? { automaticPreparedAt: now } : {}),
+          ...((options.automatic || p.attendanceChecked) ? { automaticPreparedAt: now } : {}),
         },
       });
       return { status: old.status, unchanged: true, count: p.rows.length };
@@ -449,7 +478,7 @@ export async function prepareDay(
             announcementId,
             preparedAt: now,
             lastError: note,
-            ...(options.automatic ? { automaticPreparedAt: now } : {}),
+            ...((options.automatic || p.attendanceChecked) ? { automaticPreparedAt: now } : {}),
           },
         });
       },
@@ -462,4 +491,5 @@ export async function prepareDay(
     };
   });
 }
+
 

@@ -9,7 +9,7 @@ export type Participant = {
   number: string;
   type: GroupType;
 };
-export type ResolvedParticipant = Participant & { studentId: string };
+export type ResolvedParticipant = Participant & { studentId: string; makeupFrom?: string };
 export type Stage = "MORNING" | "AFTERNOON";
 export function scheduleFor(date: string) {
   const day = hkWeekday(date);
@@ -184,4 +184,5 @@ export function formatAnnouncement(
 export function currentPhase(now: Date) {
   return { date: hkYmd(now), time: hkHm(now) };
 }
+
 

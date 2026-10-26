@@ -105,7 +105,7 @@ export function AfterSchoolPanel({
             className="text-caption mt-1"
             style={{ color: "var(--color-ink-500)" }}
           >
-            前一個工作日 16:00 整理（星期一於星期五） · 當日07:00 刊登 · 08:15 首次提醒 · 星期一 14:00／二至五
+            前一個工作日 16:00 整理（星期一於星期五） · 當日06:00補留更新 · 當日07:00 刊登 · 08:15 首次提醒 · 星期一 14:00／二至五
             15:45 再推送
           </p>
         </div>
@@ -132,6 +132,7 @@ export function AfterSchoolPanel({
               <h3 className="font-semibold">手動預覽及執行</h3>
               <p className="text-caption">
                 從同一份來源重新讀取；相同日期更新原有公告及活動。推送仍依設定時間執行，已送出或結果不明的推送不重送。
+                每日06:00把原表上一上課日未勾選出席者加入補留；成功後固定該輪補留名單。補留出席或再次缺席，請在原表新增補留當天的記錄，系統不會改寫原表。
               </p>
               <label className="block text-sm">
                 日期（香港時間）
