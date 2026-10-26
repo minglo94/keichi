@@ -11,7 +11,7 @@ export async function tick(
   const config=await prisma.afterSchoolConfig.findUnique({where:{key:'school'}});
   if(!config?.enabled)return {status:'DISABLED'};
   if(!(await approverAllowed(config.approverId,true)))return {status:'APPROVER_REVOKED'};
-  const target=preparationTarget(now), due=preparationFor(target);
+  const target=preparationTarget(now), due=target===date && time>='06:00' ? instant(date,'06:00') : preparationFor(target);
   const targetSchedule=scheduleFor(target)!;
   let preparationError:string|undefined;
   if(now>=due && now<instant(target,targetSchedule.start)) {
@@ -39,3 +39,4 @@ export async function tick(
     ? {...result,status:'PREPARATION_FAILED',deliveryStatus:result.status,preparationDate:target,preparationError}
     : {...result,preparationDate:target};
 }
+
