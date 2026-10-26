@@ -1,3 +1,5 @@
+import { announcementDeleteActor } from "@/lib/announcement-delete"
+import { canDeleteAnnouncement } from "@/lib/announcement-delete-policy"
 import { studentAnnouncementViews } from "@/lib/after-school/student-view"
 import { managedResourceResponse } from "@/lib/after-school/managed"
 import { NextRequest, NextResponse } from "next/server"
@@ -79,14 +81,19 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  const actor = await announcementDeleteActor(session.user.id)
+  if (!actor) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const announcement = await prisma.announcement.findUnique({ where: { id: params.id } })
+  if (!announcement) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  if (!canDeleteAnnouncement(announcement, actor)) {
+    return NextResponse.json({ error: "只有建立者、管理員或該組別主席可刪除公告" }, { status: 403 })
+  }
   const managed = await managedResourceResponse("announcement", params.id)
   if (managed) return managed
-
-  const owned = await getOwned(params.id, session.user.id)
-  if (!owned) return NextResponse.json({ error: "Not found or forbidden" }, { status: 403 })
 
   await prisma.announcement.delete({ where: { id: params.id } })
 
   return NextResponse.json({ deleted: true })
 }
+
 

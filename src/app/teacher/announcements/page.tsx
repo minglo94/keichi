@@ -8,6 +8,7 @@ type Target        = "ALL" | "ADMIN" | "DISCIPLINE" | "IT" | "CURRICULUM" | "ECA
 type Priority      = "NORMAL" | "IMPORTANT" | "URGENT"
 
 type Announcement = {
+  canDelete?: boolean
   id:        string
   title:     string
   body:      string
@@ -53,6 +54,9 @@ export default function AnnouncementsPage() {
   const [loading,       setLoading]       = useState(true)
   const [showForm,      setShowForm]      = useState(false)
   const [editingId,     setEditingId]     = useState<string | null>(null)
+
+  const [deleteError, setDeleteError] = useState("")
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // Form state
   const [title,   setTitle]   = useState("")
@@ -118,9 +122,9 @@ export default function AnnouncementsPage() {
     if (res.ok) {
       const result = await res.json()
       if (editingId) {
-        setAnnouncements((prev) => prev.map(a => a.id === editingId ? result : a))
+        setAnnouncements((prev) => prev.map(a => a.id === editingId ? { ...result, canDelete: a.canDelete } : a))
       } else {
-        setAnnouncements((prev) => [result, ...prev])
+        setAnnouncements((prev) => [{ ...result, canDelete: true }, ...prev])
       }
       resetForm()
     }
@@ -147,9 +151,21 @@ export default function AnnouncementsPage() {
   }
 
   async function deleteAnn(id: string) {
-    if (!confirm("確定刪除嗎？")) return
-    setAnnouncements((prev) => prev.filter((a) => a.id !== id))
-    await fetch(`/api/announcements/${id}`, { method: "DELETE" })
+    if (deletingId || !confirm("確定刪除嗎？")) return
+    setDeletingId(id)
+    setDeleteError("")
+    try {
+      const response = await fetch(`/api/announcements/${id}`, { method: "DELETE" })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || `刪除失敗（${response.status}），請重試`)
+      }
+      setAnnouncements((prev) => prev.filter((a) => a.id !== id))
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "刪除失敗，請重試")
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   async function togglePin(ann: Announcement) {
@@ -163,6 +179,7 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
+      {deleteError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-red-700">{deleteError}</p>}
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -392,14 +409,16 @@ export default function AnnouncementsPage() {
                   >
                     📌
                   </button>
-                  <button
+                  {ann.canDelete && <button
+                    disabled={deletingId !== null}
+                    aria-label="刪除公告"
                     onClick={() => deleteAnn(ann.id)}
                     className="text-caption px-2.5 py-1 rounded-input transition-colors hover:bg-[var(--color-discipline-soft)]"
                     style={{ color: "var(--color-ink-300)" }}
                     title="刪除"
                   >
-                    ×
-                  </button>
+                    {deletingId === ann.id ? "刪除中…" : "×"}
+                  </button>}
                 </div>
               </div>
             </li>
@@ -409,3 +428,4 @@ export default function AnnouncementsPage() {
     </div>
   )
 }
+
