@@ -105,7 +105,7 @@ export function AfterSchoolPanel({
             className="text-caption mt-1"
             style={{ color: "var(--color-ink-500)" }}
           >
-            06:00 整理 · 07:00 刊登 · 08:15 首次提醒 · 星期一 14:00／二至五
+            前一個工作日 16:00 整理（星期一於星期五） · 當日07:00 刊登 · 08:15 首次提醒 · 星期一 14:00／二至五
             15:45 再推送
           </p>
         </div>
@@ -434,3 +434,4 @@ export function AfterSchoolPanel({
     </section>
   );
 }
+
