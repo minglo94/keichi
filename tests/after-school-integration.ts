@@ -81,11 +81,8 @@ async function main() {
   const conflictPreview = await previewDay(date, reader);
   assert.equal(conflictPreview.errors.length, 0);
   assert.match(conflictPreview.warnings.join(" "), /時間重疊/);
-  await assert.rejects(
-    () => prepareDay(date, "as-admin", { reader, now: at("06:00") }),
-    /時間重疊/,
-  );
-  assert.equal(await p.announcement.count(), 0);
+  await prepareDay(date, "as-admin", { reader, now: at("06:00"), automatic: true });
+  assert.equal(await p.announcement.count(), 1);
   await prepareDay(date, "as-admin", {
     reader,
     now: at("06:00"),
@@ -167,15 +164,8 @@ async function main() {
       }),
     /重新預覽/,
   );
-  await assert.rejects(
-    () =>
-      prepareDay(date, "as-admin", {
-        reader,
-        now: at("06:02"),
-        automatic: true,
-      }),
-    /時間重疊/,
-  );
+  await prepareDay(date, "as-admin", {reader,now:at("06:02"),automatic:true});
+  assert.match((await p.afterSchoolRun.findUniqueOrThrow({where:{date}})).lastError || '', /課後班優先.*Changed clash/);
   await p.afterSchoolRun.delete({ where: { date } });
   await p.activity.deleteMany({ where: { id: { not: clash.id } } });
   await p.announcement.deleteMany();
@@ -491,4 +481,5 @@ main()
     console.error(e);
     process.exitCode = 1;
   });
+
 

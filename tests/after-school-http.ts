@@ -160,7 +160,7 @@ async function main() {
         expectedHash: data.hash,
       })
     ).status,
-    422,
+    200,
   );
   assert.equal(
     (
@@ -340,4 +340,5 @@ async function main() {
   }
 }
 main().finally(() => p.$disconnect());
+
 

@@ -17,3 +17,11 @@ test("accepted conflict notes are distinct from blocking errors", () => {
     true,
   );
 });
+
+
+test("conflict note declares after-school priority and remains deliverable",()=>{
+ const note=conflictNote(["1B #13 與合唱團時間重疊"]);
+ assert.match(note!,/課後班優先/);
+ assert.match(note!,/1B #13 與合唱團時間重疊/);
+ assert.equal(isAcceptedConflictNote(note),true);
+});

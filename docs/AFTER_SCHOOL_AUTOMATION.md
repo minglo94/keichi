@@ -90,7 +90,7 @@ npm run test:after-school 執行純邏輯及Google adapter測試；另執行 npx
 - https://docs.cloud.google.com/scheduler/docs/creating
 - https://docs.cloud.google.com/sdk/gcloud/reference/scheduler/jobs/create/http
 
-## 確認接受時間重疊
+## 舊版確認時間重疊（已由預設接受取代）
 
 手動預覽把其他活動時間重疊列為黃色警告；勾選「我已知悉以上時間重疊，仍接受整理、刊登及建立已批活動，並按原定時間提醒學生」後才可執行。日期或重新預覽會清除勾選。無效名單、未能配對等錯誤不可略過。此操作不會取消另一活動。
 
@@ -130,3 +130,12 @@ npm run test:after-school 執行純邏輯及Google adapter測試；另執行 npx
 只讀來源，不回寫Google Sheet。補留出席／再次缺席須在原表新增補留當天記錄；系統只依原表上一上課日的列帶入下一日，不憑空產生後續出席核取方塊。當日資料修正仍可重新預覽，既有成功06:00補留快照固定。部署前已完成06:00整理的舊記錄不追溯重做。
 
 無schema變更、不需db push。驗證18項：13項格式／補留／日期／學生投影單元測試、3項真實scheduler搭配替代依賴測試及2項真實previewDay搭配替代資料測試通過。含截止邊界、快照固定、去重、類型衝突、無效核取值、週末／假期、前一日整理＋當日06:00再讀及推送階段。未執行完整資料庫整合、TypeScript型別檢查或production build。
+
+
+## 現行時間重疊政策：預設接受、課後班優先
+
+手動及自動整理都預設接受活動時間重疊，不需勾選確認。一般資料錯誤仍阻止。READY記錄於「活動／錯誤」以黃色備註保留每項班別學號及衝突活動，標示課後班優先；公告正文亦通知優先出席課後班。其他活動及出席名單不自動取消。舊acceptConflicts輸入僅保留相容性，不再作衝突通行條件。
+
+FAILED記錄即使有舊automaticPreparedAt仍可在有效整理時段重試。原有公告／活動更新、06:00補留及08:15／下午推送時間不變；接受備註保持既有格式前綴讓推送識別，不當作一般錯誤。推送去重邏輯未改。
+
+驗證8項：2項備註政策、2項真實prepareDay配替代依賴、4項scheduler配替代依賴測試通過。更新完整DB／HTTP測試為預設通行，但本次未執行完整DB整合、型別檢查或production build。無schema變更。

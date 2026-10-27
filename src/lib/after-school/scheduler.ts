@@ -16,7 +16,7 @@ export async function tick(
   let preparationError:string|undefined;
   if(now>=due && now<instant(target,targetSchedule.start)) {
     const prepared=await prisma.afterSchoolRun.findUnique({where:{date:target}});
-    if(!prepared?.automaticPreparedAt || prepared.automaticPreparedAt<due) {
+    if(prepared?.status === 'FAILED' || !prepared?.automaticPreparedAt || prepared.automaticPreparedAt<due) {
       try {
         await prepareDay(target,config.approverId,{automatic:true,now,reader:options.reader});
       } catch(error) {
@@ -39,4 +39,5 @@ export async function tick(
     ? {...result,status:'PREPARATION_FAILED',deliveryStatus:result.status,preparationDate:target,preparationError}
     : {...result,preparationDate:target};
 }
+
 

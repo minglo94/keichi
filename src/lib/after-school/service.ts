@@ -198,26 +198,8 @@ export async function prepareDay(
         );
       if (p.errors.length)
         throw new AfterSchoolError(422, p.errors.slice(0, 12).join("；"));
-      if (p.warnings.length) {
-        const previous = await prisma.afterSchoolRun.findUnique({
-          where: { date },
-        });
-        const note = conflictNote(p.warnings);
-        const alreadyAccepted =
-          previous?.status === "READY" &&
-          previous.sourceHash === p.hash &&
-          previous.lastError === note;
-        const acceptingPreview =
-          !options.automatic &&
-          options.acceptConflicts === true &&
-          options.expectedHash === p.hash;
-        if (!alreadyAccepted && !acceptingPreview)
-          throw new AfterSchoolError(
-            422,
-            "有時間重疊，請預覽並確認接受後繼續：" +
-              p.warnings.slice(0, 12).join("；"),
-          );
-      }
+      // Activity overlaps are advisory: after-school takes priority by default.
+      // Keep every conflict in the READY run note; data errors above still block.
     } catch (e) {
       if (e instanceof AfterSchoolError && e.status === 409) throw e;
       const message =
@@ -491,5 +473,6 @@ export async function prepareDay(
     };
   });
 }
+
 
 
