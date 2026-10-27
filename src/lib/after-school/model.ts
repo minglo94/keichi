@@ -154,7 +154,7 @@ export function formatAnnouncement(
   if (!s) throw new Error("週末不安排課後班");
   const [, m, d] = date.split("-");
   const title = `${+d}/${+m} 課後班名單`;
-  const intro = `請以下同學於${s.start === "15:30" ? "3:30" : "4:00"} pm 放學後, 到以下地點出席課後班。`;
+  const intro = `請以下同學於${s.start === "15:30" ? "3:30" : "4:00"} pm 放學後, 到以下地點出席課後班。如與其他活動時間重疊，請優先出席課後班。`;
   const sections = (Object.keys(TYPES) as GroupType[]).map((type) => {
     const classes = new Map<string, string[]>();
     rows
@@ -184,5 +184,6 @@ export function formatAnnouncement(
 export function currentPhase(now: Date) {
   return { date: hkYmd(now), time: hkHm(now) };
 }
+
 
 

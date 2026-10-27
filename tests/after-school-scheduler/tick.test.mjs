@@ -14,3 +14,8 @@ test('Monday 16:00 prepares Tuesday and source failure is visible',async()=>{
  f=reset();f.fail=true;const result=await tick({now:new Date('2026-10-26T16:00:00+08:00')});assert.equal(result.status,'PREPARATION_FAILED');assert.equal(result.preparationDate,'2026-10-27');
 });
 test('weekend missed-run recovery targets Monday',async()=>{const f=reset();await tick({now:new Date('2026-10-24T09:00:00+08:00')});assert.deepEqual(f.prepared,['2026-10-26']);});
+
+test('failed preparation is retried even when an old automatic timestamp exists',async()=>{
+ const f=reset();f.runs['2026-10-28']={status:'FAILED',automaticPreparedAt:new Date('2026-10-27T16:00:00+08:00')};
+ await tick({now:new Date('2026-10-27T17:00:00+08:00')});assert.deepEqual(f.prepared,['2026-10-28']);assert.equal(f.runs['2026-10-28'].status,'READY');
+});
