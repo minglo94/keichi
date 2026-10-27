@@ -773,6 +773,7 @@ model DisciplineAlertLog {
 
 model CalendarEvent {
   id          String         @id @default(cuid())
+  googleSyncEnabled Boolean @default(true)
   title       String
   startDate   DateTime
   endDate     DateTime?
@@ -1091,6 +1092,7 @@ enum ActivityType {
 model Activity {
   afterSchoolGroup AfterSchoolGroup?
   id           String         @id @default(cuid())
+  googleSyncEnabled Boolean @default(false)
   title        String
   // Directly-created activities start PENDING and are hidden until a chair
   // signs off. APPROVED is the DEFAULT so every pre-existing row (and every
@@ -1731,3 +1733,4 @@ model AfterSchoolLease {
   token String
   expiresAt DateTime
 }
+

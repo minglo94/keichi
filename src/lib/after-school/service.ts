@@ -350,6 +350,7 @@ export async function prepareDay(
           const info = TYPES[type];
           const title = `${p.title} · ${info.title}`;
           const fields = {
+            googleSyncEnabled: group?.activity.googleSyncEnabled ?? false,
             title,
             description: p.body,
             startTime: instant(date, schedule!.start),
@@ -374,6 +375,7 @@ export async function prepareDay(
               data: { runDate: date, type, activityId: activity.id },
             });
           const calendarFields = {
+            googleSyncEnabled: activity.googleSyncEnabled,
             title,
             startDate: fields.startTime,
             endDate: fields.endTime,
@@ -473,6 +475,7 @@ export async function prepareDay(
     };
   });
 }
+
 
 
 

@@ -30,6 +30,7 @@ export async function publishActivityToCalendar(activity: Activity): Promise<str
   const event = await prisma.calendarEvent.create({
     data: {
       title:       activity.title,
+      googleSyncEnabled: activity.googleSyncEnabled,
       startDate:   activity.startTime,
       endDate:     activity.endTime,
       allDay:      false,
@@ -91,3 +92,4 @@ export async function unpublishActivityCalendar(calendarEventId: string | null):
     console.error("[activity-calendar] delete event failed:", err)
   }
 }
+

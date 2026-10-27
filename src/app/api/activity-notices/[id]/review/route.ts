@@ -157,6 +157,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       const parts = [s.time, s.location].filter(Boolean)
       const event = await prisma.calendarEvent.create({
         data: {
+          googleSyncEnabled: false,
           title,
           startDate:   start,
           allDay:      true,
@@ -249,3 +250,4 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     assignmentsCreated:    assignedCount,
   })
 }
+

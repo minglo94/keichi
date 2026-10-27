@@ -135,6 +135,7 @@ export default function TeacherActivitiesPage() {
   // untagged. Options come from the server so a restricted committee is only
   // offered to its own members.
   const [committee, setCommittee] = useState("")
+  const [googleSyncEnabled, setGoogleSyncEnabled] = useState(false)
   const [committeeOptions, setCommitteeOptions] = useState<{ value: string; label: string }[]>([])
 
   // Extra dates — an Activity holds ONE startTime, so a repeated activity
@@ -368,6 +369,7 @@ export default function TeacherActivitiesPage() {
             activityType: activityType || undefined,
             committee:    committee || undefined,
             studentIds:   ids.length ? ids : undefined,
+            googleSyncEnabled,
           }),
         })
         if (res.ok) createdAll.push(await res.json())
@@ -379,7 +381,7 @@ export default function TeacherActivitiesPage() {
         if (failed > 0) {
           setFormError(`已建立 ${createdAll.length} 個活動，${failed} 個失敗。`)
         }
-        setTitle(""); setDesc(""); setStart(""); setEnd(""); setLocation(""); setActivityType(""); setCommittee("")
+        setTitle(""); setDesc(""); setStart(""); setEnd(""); setLocation(""); setActivityType(""); setCommittee(""); setGoogleSyncEnabled(false)
         setSessions([])
         resetRoster()
         if (failed === 0) setShowForm(false)
@@ -439,6 +441,10 @@ export default function TeacherActivitiesPage() {
       {showForm && (
         <form onSubmit={create} className="card p-5 mb-6 space-y-4">
           <h3 className="text-h3">新增活動</h3>
+          <label className="flex items-start gap-2 text-caption">
+            <input type="checkbox" checked={googleSyncEnabled} onChange={e=>setGoogleSyncEnabled(e.target.checked)}/>
+            <span>同步至 Google Calendar（預設關閉；勾選後在批准時同步給建立者及相關組別已連結帳戶。未勾選仍會顯示於網站行事曆。）</span>
+          </label>
           <p className="text-caption" style={{ color: "var(--color-ink-500)" }}>管理員或所選組別主席建立的活動會自動批准並加入行事曆；其他教師建立的活動需由主席或管理員批核。</p>
           <div>
             <label className="text-caption block mb-1" style={{ color: "var(--color-ink-700)" }}>活動名稱 *</label>
@@ -1011,3 +1017,4 @@ export default function TeacherActivitiesPage() {
     </div>
   )
 }
+
