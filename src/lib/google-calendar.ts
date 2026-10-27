@@ -233,6 +233,7 @@ function toGCalPayload(event: CalendarEvent): GCalEvent {
  * back into the CalendarEvent DB row.
  */
 export async function createGoogleEvent(userId: string, event: CalendarEvent): Promise<SyncResult> {
+  if (event.googleSyncEnabled === false) return {success:false,error:"sync_disabled"}
   const conn = await prisma.googleCalendarConnection.findUnique({ where: { userId } })
   if (!conn) return { success: false, error: "not_connected" }
 
@@ -260,6 +261,7 @@ export async function createGoogleEvent(userId: string, event: CalendarEvent): P
  * Uses PATCH so only changed fields are sent.
  */
 export async function updateGoogleEvent(userId: string, event: CalendarEvent): Promise<SyncResult> {
+  if (event.googleSyncEnabled === false) return {success:false,error:"sync_disabled"}
   if (!event.googleEventId) {
     // No Google event yet — create one instead
     return createGoogleEvent(userId, event)
@@ -468,7 +470,7 @@ export async function processIncrementalSync(userId: string): Promise<number> {
 
     // Find matching local CalendarEvents
     const localEvents = await prisma.calendarEvent.findMany({
-      where: { googleEventId: { in: googleIds } },
+      where: { googleEventId: { in: googleIds }, googleSyncEnabled: true },
     })
     const localMap = new Map(localEvents.map((e) => [e.googleEventId!, e]))
 
@@ -551,7 +553,7 @@ export async function backfillUnsyncedEvents(userId: string): Promise<number> {
   if (!conn) return 0
 
   const unsynced = await prisma.calendarEvent.findMany({
-    where: { authorId: userId, googleEventId: null },
+    where: { authorId: userId, googleEventId: null, googleSyncEnabled: true },
     orderBy: { startDate: "asc" },
   })
 
@@ -615,6 +617,7 @@ async function committeeFanOutTargets(committee: CommitteeType, excludeUserId: s
 }
 
 async function pushEventTo(userId: string, event: CalendarEvent): Promise<void> {
+  if (event.googleSyncEnabled === false) return
   const conn = await prisma.googleCalendarConnection.findUnique({ where: { userId } })
   if (!conn) return
 
@@ -650,7 +653,7 @@ async function pushEventTo(userId: string, event: CalendarEvent): Promise<void> 
  * events with no committee.
  */
 export async function fanOutCommitteeEvent(event: CalendarEvent): Promise<void> {
-  if (!event.committee) return
+  if (!event.committee || event.googleSyncEnabled === false) return
   const targets = await committeeFanOutTargets(event.committee, event.authorId)
   await Promise.all(targets.map((userId) => pushEventTo(userId, event)))
 }
@@ -707,7 +710,7 @@ export async function backfillCommitteeEventsForUser(userId: string): Promise<nu
   ]))
 
   const events = await prisma.calendarEvent.findMany({
-    where: { committee: { in: committees }, authorId: { not: userId } },
+    where: { committee: { in: committees }, authorId: { not: userId }, googleSyncEnabled: true },
   })
   for (const event of events) {
     await pushEventTo(userId, event)
@@ -782,3 +785,4 @@ export async function disconnectCalendar(userId: string): Promise<void> {
   await stopCalendarWatch(userId).catch(() => {})
   await prisma.googleCalendarConnection.deleteMany({ where: { userId } })
 }
+

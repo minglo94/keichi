@@ -20,6 +20,7 @@ const createSchema = z.object({
   // Preferred: already-resolved student account ids from the roster grid
   // (see /api/students/resolve). Takes precedence over studentList.
   studentIds:  z.array(z.string()).max(500).optional(),
+  googleSyncEnabled: z.boolean().default(false),
 })
 
 export async function GET(req: NextRequest) {
@@ -114,6 +115,7 @@ export async function POST(req: NextRequest) {
       committee:    data.committee,
       activityType: data.activityType,
       createdById:  session.user.id,
+      googleSyncEnabled: data.googleSyncEnabled,
       approval:     autoApprove ? "APPROVED" : "PENDING",
       approvedById: autoApprove ? session.user.id : null,
       approvedAt:   autoApprove ? new Date() : null,
@@ -178,4 +180,5 @@ export async function POST(req: NextRequest) {
   }
   return NextResponse.json(activity, { status: 201 })
 }
+
 
