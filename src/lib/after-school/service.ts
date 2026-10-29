@@ -1,8 +1,8 @@
-import { missedAttendance, mergeMakeup, type MakeupParticipant } from "./carryover";
+import { outstandingAttendance, mergeMakeup, type MakeupParticipant } from "./carryover";
 import { overlaps, windowOf } from "@/lib/clash";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { hkYmd, hkDayStart, hkWeekday } from "@/lib/hk-date";
+import { hkYmd, hkDayStart } from "@/lib/hk-date";
 import {
   parseRows,
   formatAnnouncement,
@@ -61,17 +61,11 @@ export async function previewDay(date: string, reader: Reader = readSource, now 
         sourceRows=merged.rows;parsed.errors.push(...merged.errors);
       }
     } else {
-      let previous = new Date(+hkDayStart(date)-86400000);
-      for (let days=0; days<370; days++) {
-        const previousDate=hkYmd(previous);
-        const holiday=await prisma.nonTeachingPeriod.findFirst({where:{type:"HOLIDAY",startDate:{lte:previous},endDate:{gte:previous}},select:{id:true}});
-        if (![0,6].includes(hkWeekday(previousDate)) && !holiday) {
-          const missed=missedAttendance(values,previousDate,config.schoolYearStart);
-          const merged=mergeMakeup(sourceRows,missed.rows,previousDate);
-          sourceRows=merged.rows;parsed.errors.push(...missed.errors,...merged.errors);break;
-        }
-        if(days===369)parsed.errors.push("未能找到上一上課日，請檢查校曆");
-        previous=new Date(+previous-86400000);
+      const outstanding=outstandingAttendance(values,date,config.schoolYearStart);
+      parsed.errors.push(...outstanding.errors);
+      for (const from of new Set(outstanding.rows.map(row=>row.makeupFrom!))) {
+        const merged=mergeMakeup(sourceRows,outstanding.rows.filter(row=>row.makeupFrom===from),from);
+        sourceRows=merged.rows;parsed.errors.push(...merged.errors);
       }
     }
   }
@@ -475,6 +469,7 @@ export async function prepareDay(
     };
   });
 }
+
 
 
 
