@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeScopedProxy, runScoped, stagingAuthScope } from '../src/lib/staging-prisma-scope.mjs';
+import { makeScopedProxy, runProductionScoped, runScoped, stagingAuthScope } from '../src/lib/staging-prisma-scope.mjs';
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 test('parallel requests use separate clients while each request reuses its own',async()=>{
  let made=0;
@@ -27,4 +27,20 @@ test('candidate credential mode is opt-in and isolated across requests', async (
  ]);
  assert.deepEqual(states, [true, false]);
  assert.equal(stagingAuthScope(), undefined);
+});
+
+test('production Worker scopes Prisma without enabling staging authentication', async () => {
+ const prisma = makeScopedProxy(connection => ({ connection }), () => ({ connection: 'fallback' }));
+ const result = await Promise.all([
+  runProductionScoped('release', async () => {
+   await delay(5);
+   return [prisma.connection, stagingAuthScope()];
+  }),
+  runScoped('candidate', async () => {
+   await delay(1);
+   return [prisma.connection, stagingAuthScope()?.candidate];
+  }, undefined, true),
+ ]);
+ assert.deepEqual(result, [['release', undefined], ['candidate', true]]);
+ assert.equal(prisma.connection, 'fallback');
 });
