@@ -42,7 +42,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
         authorization: {
           params: {
             // Request offline access so Google issues a refresh_token
-            ...(staging ? {} : { access_type: "offline", prompt: "consent" }),
+            ...(staging ? { prompt: "select_account" } : { access_type: "offline", prompt: "consent" }),
             scope: [
               "openid",
               "email",
