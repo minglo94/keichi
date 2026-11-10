@@ -107,10 +107,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
         if (!account || account.provider === "credentials") return true
 
         if (staging) {
-          return account.provider === "google" && profile?.email_verified === true
-            && !!google && typeof profile.email === "string"
-            && profile.email.toLowerCase() === google.email
-            && user.email?.toLowerCase() === google.email
+          if (account.provider !== "google" || !google) return false
+          if (profile?.email_verified !== true) return "/login?error=GoogleEmailUnverified"
+          if (typeof profile.email !== "string" || profile.email.toLowerCase() !== google.email) {
+            return "/login?error=GoogleAccountNotAllowed"
+          }
+          if (user.email?.toLowerCase() !== google.email) return "/login?error=GoogleLinkedAccountMismatch"
+          return true
         }
 
         // For Google (or any OAuth provider): if a user with this email already
