@@ -8,6 +8,8 @@ import PizZip from "pizzip"
 import Docxtemplater from "docxtemplater"
 import JSZip from "jszip"
 import ExcelJS from "exceljs"
+import { getCloudflareContext } from "@opennextjs/cloudflare"
+import { readTemplateAsset } from "@/lib/template-assets.mjs"
 
 // ─────────────────────────────────────────────────────────
 // Chinese date helpers (port of fill_docs.py)
@@ -128,12 +130,14 @@ const CATEGORY_MAP: Record<string, string> = {
 
 const TEMPLATES = path.join(process.cwd(), "public", "templates")
 
-function readTemplate(filename: string): Buffer {
-  return fs.readFileSync(path.join(TEMPLATES, filename))
+async function readTemplate(filename: string): Promise<Buffer> {
+  let assets = null
+  try { assets = getCloudflareContext().env.ASSETS ?? null } catch { /* standard Node runtime */ }
+  return readTemplateAsset(filename, assets, (name) => fs.readFileSync(path.join(TEMPLATES, name)))
 }
 
-function renderDocx(templateFile: string, data: Record<string, string>): Uint8Array {
-  const content = readTemplate(templateFile)
+async function renderDocx(templateFile: string, data: Record<string, string>): Promise<Uint8Array> {
+  const content = await readTemplate(templateFile)
   const zip = new PizZip(content)
   const doc = new Docxtemplater(zip, {
     paragraphLoop: true,
@@ -152,7 +156,7 @@ function renderDocx(templateFile: string, data: Record<string, string>): Uint8Ar
 // Document generators
 // ─────────────────────────────────────────────────────────
 
-function buildNotice(d: z.infer<typeof generateSchema>): Uint8Array {
+async function buildNotice(d: z.infer<typeof generateSchema>): Promise<Uint8Array> {
   const contactLine = `如有查詢，歡迎致電${d.contactTel} 與${d.teacher}老師聯絡。`
   const issueDateCn = numToChineseDate(d.issueDate)
   const noticeNum   = d.noticeNum || ""
@@ -210,7 +214,7 @@ function buildNotice(d: z.infer<typeof generateSchema>): Uint8Array {
   }
 }
 
-function buildTutorSignin(d: z.infer<typeof generateSchema>): Uint8Array {
+async function buildTutorSignin(d: z.infer<typeof generateSchema>): Promise<Uint8Array> {
   const tutorName = d.orgName.trim() || d.teacher
   const data: Record<string, string> = {
     tutorName,
@@ -235,7 +239,7 @@ function buildTutorSignin(d: z.infer<typeof generateSchema>): Uint8Array {
 
 async function buildAttendance(d: z.infer<typeof generateSchema>): Promise<Buffer> {
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.readFile(path.join(TEMPLATES, "出席紀錄.xlsx"))
+  await wb.xlsx.load(Uint8Array.from(await readTemplate("出席紀錄.xlsx")).buffer)
   const ws = wb.worksheets[0]
 
   ws.getCell("A1").value = `課外活動名稱：${d.activityName}`
@@ -270,7 +274,7 @@ async function buildAttendance(d: z.infer<typeof generateSchema>): Promise<Buffe
 
 async function buildFad8(d: z.infer<typeof generateSchema>): Promise<Buffer> {
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.readFile(path.join(TEMPLATES, "FAD8(25-26).xlsx"))
+  await wb.xlsx.load(Uint8Array.from(await readTemplate("FAD8(25-26).xlsx")).buffer)
   const ws = wb.worksheets[0]
 
   const categoryText  = CATEGORY_MAP[d.fad8Category] ?? d.fad8Category
@@ -331,12 +335,12 @@ export async function POST(req: NextRequest) {
     const zip = new JSZip()
 
     // 通告.docx
-    const noticeBuf = buildNotice(data)
+    const noticeBuf = await buildNotice(data)
     zip.file("通告.docx", noticeBuf)
 
     // 導師簽到.docx (external tutors only)
     if (data.tutorType === "external") {
-      const signinBuf = buildTutorSignin(data)
+      const signinBuf = await buildTutorSignin(data)
       zip.file("導師簽到.docx", signinBuf)
     }
 

@@ -6,6 +6,8 @@ import fs from "fs"
 import path from "path"
 import PizZip from "pizzip"
 import Docxtemplater from "docxtemplater"
+import { getCloudflareContext } from "@opennextjs/cloudflare"
+import { readTemplateAsset } from "@/lib/template-assets.mjs"
 
 // Wingdings 2 checkbox glyphs (must match template's checkbox run font).
 const CHECKED = "" // ■ checked
@@ -155,7 +157,9 @@ export async function POST(req: NextRequest) {
 
   let buf: Uint8Array
   try {
-    const content = fs.readFileSync(TEMPLATE_PATH)
+    let assets = null
+    try { assets = getCloudflareContext().env.ASSETS ?? null } catch { /* standard Node runtime */ }
+    const content = await readTemplateAsset("quotation.docx", assets, () => fs.readFileSync(TEMPLATE_PATH))
     const zip = new PizZip(content)
     const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true })
     doc.render(data)
