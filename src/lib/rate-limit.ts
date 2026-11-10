@@ -14,13 +14,14 @@ export type RateLimitResult = {
  * @param limit    Max requests allowed per window.
  * @param windowMs Window length in milliseconds.
  *
- * Fails OPEN: if the DB is unreachable, requests are allowed rather than
- * locking everyone out (availability over strictness for a school tool).
+ * By default, school tools remain available during a limiter outage.
+ * Credential login opts into denial when the limiter is unavailable.
  */
 export async function checkRateLimit(
   key: string,
   limit: number,
-  windowMs: number
+  windowMs: number,
+  { failClosed = false }: { failClosed?: boolean } = {},
 ): Promise<RateLimitResult> {
   const now = new Date()
 
@@ -49,8 +50,8 @@ export async function checkRateLimit(
     })
     return { allowed: true, remaining: Math.max(0, limit - updated.count), resetAt }
   } catch (err) {
-    console.error("rate-limit check failed (failing open):", err)
-    return { allowed: true, remaining: limit, resetAt: new Date(now.getTime() + windowMs) }
+    console.error("rate-limit check failed:", err)
+    return { allowed: !failClosed, remaining: failClosed ? 0 : limit, resetAt: new Date(now.getTime() + windowMs) }
   }
 }
 

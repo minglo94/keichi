@@ -63,7 +63,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
           const email = credentials.email as string
 
           // Throttle credential brute-force: max 10 attempts per email / 15 min.
-          const rl = await checkRateLimit(`login:${email.toLowerCase()}`, 10, 15 * 60 * 1000)
+          const rl = await checkRateLimit(`login:${email.toLowerCase()}`, 10, 15 * 60 * 1000, { failClosed: true })
           if (!rl.allowed) return null
 
           const user = await prisma.user.findUnique({ where: { email } })
