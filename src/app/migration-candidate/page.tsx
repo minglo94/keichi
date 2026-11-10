@@ -18,7 +18,7 @@ export default async function MigrationCandidate() {
       <ul className="list-disc space-y-2 pl-6">
         <li><Link prefetch={false} className="underline" href="/api/classes">查看班級</Link></li>
         {session.user.role === "ADMIN" && (
-          <li><Link prefetch={false} className="underline" href="/api/admin/groups">查看群組管理</Link></li>
+          <li><Link prefetch={false} className="underline" href="/teacher/admin/groups">查看群組管理</Link></li>
         )}
       </ul>
     </main>

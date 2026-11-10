@@ -2,6 +2,7 @@ import { isAdmin, isTeacherOrAdmin } from "@/lib/roles"
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { stagingAuthScope } from "@/lib/staging-prisma-scope.mjs"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 
@@ -25,7 +26,23 @@ const createUserSchema = z.object({
 export async function GET() {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isTeacherOrAdmin(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const candidate = stagingAuthScope()?.candidate === true
+  if (candidate ? !isAdmin(session.user.role) : !isTeacherOrAdmin(session.user.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  if (candidate) {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        committeeRoles: { select: { committee: true, isChair: true } },
+      },
+      orderBy: [{ role: "asc" }, { name: "asc" }],
+    })
+    return NextResponse.json(users)
+  }
 
   const users = await prisma.user.findMany({
     select: {
