@@ -7,11 +7,13 @@ const allowedWrites = new Map([
   ['/api/activity-docs/generate', new Set(['POST'])],
   ['/api/teacher/blackboard/schedule', new Set(['PUT'])],
 ]);
-export function permittedInStaging(request) {
+export function permittedInStaging(request, googleEnabled = false) {
   const path = new URL(request.url).pathname;
   const method = request.method.toUpperCase();
   if (path.includes('%') || path === '/_next/image') return false;
   if (path === '/api/cron' || path.startsWith('/api/cron/') || path === '/api/oauth' || path.startsWith('/api/oauth/')) return false;
+  if (path === '/api/auth/signin/google') return googleEnabled && method === 'POST';
+  if (path === '/api/auth/callback/google') return googleEnabled && method === 'GET';
   if (path.startsWith('/api/auth/callback/') && path !== '/api/auth/callback/credentials') return false;
   if (method === 'GET' || method === 'HEAD') return true;
   if (allowedWrites.get(path)?.has(method)) return true;

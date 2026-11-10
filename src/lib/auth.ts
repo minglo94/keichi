@@ -2,6 +2,7 @@ import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
+import { stagingAuthScope } from "./staging-prisma-scope.mjs"
 import { prisma } from "@/lib/prisma"
 import { checkRateLimit } from "@/lib/rate-limit"
 import bcrypt from "bcryptjs"
@@ -23,167 +24,177 @@ function isBootstrapAdmin(email?: string | null): boolean {
   return !!email && ADMIN_EMAILS.has(email.toLowerCase())
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma) as Adapter,
-  trustHost: true,
-  session: { 
-    strategy: "jwt",
-    maxAge: 2 * 60 * 60, // 2 hours
-  },
-  providers: [
-    Google({
-      clientId:  process.env.AUTH_GOOGLE_ID!,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
-      allowDangerousEmailAccountLinking: true,
-      authorization: {
-        params: {
-          // Request offline access so Google issues a refresh_token
-          access_type: "offline",
-          prompt: "consent",
-          scope: [
-            "openid",
-            "email",
-            "profile",
-          ].join(" "),
+export const { handlers, auth, signIn, signOut } = NextAuth(() => {
+  const staging = stagingAuthScope()
+  const google = staging?.google
+  return {
+    adapter: PrismaAdapter(prisma) as Adapter,
+    trustHost: true,
+    session: {
+      strategy: "jwt",
+      maxAge: 2 * 60 * 60, // 2 hours
+    },
+    providers: [
+      ...(!staging || google ? [Google({
+        clientId: google?.clientId ?? process.env.AUTH_GOOGLE_ID!,
+        clientSecret: google?.clientSecret ?? process.env.AUTH_GOOGLE_SECRET!,
+        allowDangerousEmailAccountLinking: true,
+        authorization: {
+          params: {
+            // Request offline access so Google issues a refresh_token
+            ...(staging ? {} : { access_type: "offline", prompt: "consent" }),
+            scope: [
+              "openid",
+              "email",
+              "profile",
+            ].join(" "),
+          },
+        },
+      })] : []),
+      Credentials({
+        name: "帳號密碼",
+        credentials: {
+          email:    { label: "電郵", type: "email" },
+          password: { label: "密碼", type: "password" },
+        },
+        async authorize(credentials) {
+          if (!credentials?.email || !credentials?.password) return null
+
+          const email = credentials.email as string
+
+          // Throttle credential brute-force: max 10 attempts per email / 15 min.
+          const rl = await checkRateLimit(`login:${email.toLowerCase()}`, 10, 15 * 60 * 1000)
+          if (!rl.allowed) return null
+
+          const user = await prisma.user.findUnique({ where: { email } })
+          if (!user?.password) return null
+
+          const valid = await bcrypt.compare(
+            credentials.password as string,
+            user.password,
+          )
+          if (!valid) return null
+
+          return { id: user.id, email: user.email, name: user.name, image: user.image, role: user.role }
+        },
+      }),
+    ],
+    cookies: {
+      pkceCodeVerifier: {
+        name: "authjs.pkce.code_verifier",
+        options: {
+          httpOnly: true,
+          sameSite: "lax" as const,
+          path: "/",
+          secure: process.env.NODE_ENV === "production",
+          maxAge: 60 * 15,
         },
       },
-    }),
-    Credentials({
-      name: "帳號密碼",
-      credentials: {
-        email:    { label: "電郵", type: "email" },
-        password: { label: "密碼", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null
-
-        const email = credentials.email as string
-
-        // Throttle credential brute-force: max 10 attempts per email / 15 min.
-        const rl = await checkRateLimit(`login:${email.toLowerCase()}`, 10, 15 * 60 * 1000)
-        if (!rl.allowed) return null
-
-        const user = await prisma.user.findUnique({ where: { email } })
-        if (!user?.password) return null
-
-        const valid = await bcrypt.compare(
-          credentials.password as string,
-          user.password,
-        )
-        if (!valid) return null
-
-        return { id: user.id, email: user.email, name: user.name, image: user.image, role: user.role }
-      },
-    }),
-  ],
-  cookies: {
-    pkceCodeVerifier: {
-      name: "authjs.pkce.code_verifier",
-      options: {
-        httpOnly: true,
-        sameSite: "lax" as const,
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 15,
+      state: {
+        name: "authjs.state",
+        options: {
+          httpOnly: true,
+          sameSite: "lax" as const,
+          path: "/",
+          secure: process.env.NODE_ENV === "production",
+          maxAge: 60 * 15,
+        },
       },
     },
-    state: {
-      name: "authjs.state",
-      options: {
-        httpOnly: true,
-        sameSite: "lax" as const,
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 15,
-      },
-    },
-  },
-  callbacks: {
-    async signIn({ user, account }) {
-      // Credentials provider — always allow
-      if (!account || account.provider === "credentials") return true
+    callbacks: {
+      async signIn({ user, account, profile }) {
+        // Credentials provider — always allow
+        if (!account || account.provider === "credentials") return true
 
-      // For Google (or any OAuth provider): if a user with this email already
-      // exists but has no linked OAuth account, create the link now.
-      // This handles users created via CSV import, seed, or password sign-up.
-      if (user.email) {
-        const existing = await prisma.user.findUnique({
-          where: { email: user.email },
-          select: { id: true },
-        })
-        if (existing) {
-          const linked = await prisma.account.findUnique({
-            where: {
-              provider_providerAccountId: {
-                provider: account.provider,
-                providerAccountId: account.providerAccountId,
-              },
-            },
+        if (staging) {
+          return account.provider === "google" && profile?.email_verified === true
+            && !!google && typeof profile.email === "string"
+            && profile.email.toLowerCase() === google.email
+            && user.email?.toLowerCase() === google.email
+        }
+
+        // For Google (or any OAuth provider): if a user with this email already
+        // exists but has no linked OAuth account, create the link now.
+        // This handles users created via CSV import, seed, or password sign-up.
+        if (user.email) {
+          const existing = await prisma.user.findUnique({
+            where: { email: user.email },
+            select: { id: true },
           })
-          if (!linked) {
-            await prisma.account.create({
-              data: {
-                userId:            existing.id,
-                type:              account.type,
-                provider:          account.provider,
-                providerAccountId: account.providerAccountId,
-                access_token:      account.access_token,
-                expires_at:        account.expires_at,
-                token_type:        account.token_type,
-                scope:             account.scope,
-                id_token:          account.id_token,
-                refresh_token:     account.refresh_token ?? null,
-              },
-            })
-          } else if (account.refresh_token) {
-            // Update tokens on re-sign-in so we always have a fresh refresh_token
-            await prisma.account.update({
+          if (existing) {
+            const linked = await prisma.account.findUnique({
               where: {
                 provider_providerAccountId: {
                   provider: account.provider,
                   providerAccountId: account.providerAccountId,
                 },
               },
-              data: {
-                access_token:  account.access_token,
-                expires_at:    account.expires_at,
-                refresh_token: account.refresh_token,
-              },
             })
+            if (!linked) {
+              await prisma.account.create({
+                data: {
+                  userId:            existing.id,
+                  type:              account.type,
+                  provider:          account.provider,
+                  providerAccountId: account.providerAccountId,
+                  access_token:      account.access_token,
+                  expires_at:        account.expires_at,
+                  token_type:        account.token_type,
+                  scope:             account.scope,
+                  id_token:          account.id_token,
+                  refresh_token:     account.refresh_token ?? null,
+                },
+              })
+            } else if (account.refresh_token) {
+              // Update tokens on re-sign-in so we always have a fresh refresh_token
+              await prisma.account.update({
+                where: {
+                  provider_providerAccountId: {
+                    provider: account.provider,
+                    providerAccountId: account.providerAccountId,
+                  },
+                },
+                data: {
+                  access_token:  account.access_token,
+                  expires_at:    account.expires_at,
+                  refresh_token: account.refresh_token,
+                },
+              })
+            }
           }
         }
-      }
-      return true
-    },
-    async jwt({ token, user, account }) {
-      if (user) {
-        token.id   = user.id
-        let role   = (user as { role: Role }).role
-        // Bootstrap allowlist wins — force ADMIN and promote the DB row so
-        // other queries (which read User.role) see it too.
-        if (isBootstrapAdmin((user as { email?: string | null }).email)) {
-          role = "ADMIN"
-          if ((user as { role: Role }).role !== "ADMIN" && user.id) {
-            await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } }).catch(() => {})
+        return true
+      },
+      async jwt({ token, user, account }) {
+        if (user) {
+          token.id   = user.id
+          let role   = (user as { role: Role }).role
+          // Bootstrap allowlist wins — force ADMIN and promote the DB row so
+          // other queries (which read User.role) see it too.
+          if (!staging && isBootstrapAdmin((user as { email?: string | null }).email)) {
+            role = "ADMIN"
+            if ((user as { role: Role }).role !== "ADMIN" && user.id) {
+              await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } }).catch(() => {})
+            }
           }
+          token.role = role
         }
-        token.role = role
-      }
-      if (account?.provider === "google") {
-        token.accessToken = account.access_token
-      }
-      return token
+        if (!staging && account?.provider === "google") {
+          token.accessToken = account.access_token
+        }
+        return token
+      },
+      session({ session, token }) {
+        if (token) {
+          session.user.id   = token.id as string
+          session.user.role = token.role as Role
+          session.accessToken = token.accessToken as string
+        }
+        return session
+      },
     },
-    session({ session, token }) {
-      if (token) {
-        session.user.id   = token.id as string
-        session.user.role = token.role as Role
-        session.accessToken = token.accessToken as string
-      }
-      return session
+    pages: {
+      signIn: "/login",
     },
-  },
-  pages: {
-    signIn: "/login",
-  },
+  }
 })

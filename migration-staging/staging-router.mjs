@@ -1,5 +1,13 @@
 import { authorized } from './staging-guard.mjs';
 import { permittedInStaging } from './staging-policy.mjs';
+export function stagingGoogleConfig(env) {
+  const clientId = env.AUTH_GOOGLE_ID?.trim();
+  const clientSecret = env.AUTH_GOOGLE_SECRET?.trim();
+  const email = env.STAGING_GOOGLE_EMAIL?.trim().toLowerCase();
+  if (clientId && clientSecret && email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return { clientId, clientSecret, email };
+  }
+}
 export async function routeRequest(request,env,ctx,next) {
   if (!(await authorized(request,env))) return new Response('Authentication required',{status:401,headers:{'WWW-Authenticate':'Basic realm="Dazhi staging", charset="UTF-8"','Cache-Control':'no-store'}});
   const url = new URL(request.url);
@@ -11,7 +19,7 @@ export async function routeRequest(request,env,ctx,next) {
       return env.ASSETS.fetch(new Request(new URL('/logo.png', url), { method: request.method }));
     }
   }
-  if (!permittedInStaging(request)) return Response.json({error:'此操作在隔離測試環境中暫停'}, {status:403,headers:{'Cache-Control':'no-store'}});
+  if (!permittedInStaging(request, !!stagingGoogleConfig(env))) return Response.json({error:'此操作在隔離測試環境中暫停'}, {status:403,headers:{'Cache-Control':'no-store'}});
   const response = await next(request,env,ctx);
   if (response.headers.get('content-type')?.startsWith('text/html')) {
     return new HTMLRewriter().on('link[rel="manifest"]', {

@@ -11,3 +11,12 @@ test('blocks unreviewed mutations, announcements, external OAuth and scheduled w
 test('allows normal read-only pages and API reads',()=>{
  for(const path of ['/login','/teacher','/api/auth/session','/api/users','/api/todos','/_next/static/test.js']) assert.equal(permittedInStaging(request(path)),true,path);
 });
+
+test('Google login opens only the two exact method/path pairs when configured', () => {
+  assert.equal(permittedInStaging(request('/api/auth/signin/google','POST'), true), true);
+  assert.equal(permittedInStaging(request('/api/auth/callback/google'), true), true);
+  assert.equal(permittedInStaging(request('/api/auth/signin/google','POST')), false);
+  assert.equal(permittedInStaging(request('/api/auth/signin/google'), true), false);
+  assert.equal(permittedInStaging(request('/api/auth/callback/google','POST'), true), false);
+  assert.equal(permittedInStaging(request('/api/oauth/callback'), true), false);
+});
