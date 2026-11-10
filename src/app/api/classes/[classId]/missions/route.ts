@@ -1,3 +1,4 @@
+import { checkClassReadAccess } from "@/lib/class-perm"
 import { isTeacherOrAdmin } from "@/lib/roles"
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
@@ -22,6 +23,8 @@ export async function GET(_req: NextRequest, props: RouteParams) {
   const params = await props.params;
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const denied = await checkClassReadAccess(params.classId, session.user)
+  if (denied) return denied
 
   const missions = await prisma.mission.findMany({
     where: {

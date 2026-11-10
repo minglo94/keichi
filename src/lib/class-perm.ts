@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import type { Role } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
-import { isAdmin } from "@/lib/roles"
+import { isAdmin, isTeacherOrAdmin } from "@/lib/roles"
 import { getAllTeachers, getLatestTerm, getTeacherLessons } from "@/lib/agent-timetable"
 import { resolveAgainstTimetable } from "@/lib/teacher-match"
 import { classKey } from "@/lib/roster-parse"
@@ -66,6 +66,22 @@ export async function requireClassAccess(
     )
   }
   return { cls, via: access.via }
+}
+
+/** Checks shared class reads without granting students access to staff tools. */
+export async function checkClassReadAccess(classId: string, user: UserRef): Promise<NextResponse | null> {
+  if (isTeacherOrAdmin(user.role)) {
+    const access = await requireClassAccess(classId, user)
+    return access instanceof NextResponse ? access : null
+  }
+  if (user.role === "STUDENT") {
+    const enrolment = await prisma.classEnrollment.findUnique({
+      where: { classId_studentId: { classId, studentId: user.id } },
+      select: { id: true },
+    })
+    if (enrolment) return null
+  }
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 }
 
 /**
