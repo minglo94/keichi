@@ -30,6 +30,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@auth/prisma-adapter": "^2.7.4",
+    "@neondatabase/serverless": "1.0.2",
+    "@prisma/adapter-neon": "6.19.2",
     "@prisma/client": "^6.2.1",
     "@react-email/components": "^1.0.11",
     "@types/bcryptjs": "^3.0.0",
