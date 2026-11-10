@@ -1,5 +1,7 @@
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { stagingAuthScope } from "@/lib/staging-prisma-scope.mjs"
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { DashboardGreeting } from "@/components/teacher/DashboardGreeting"
 import { MiniCalendar } from "@/components/teacher/MiniCalendar"
@@ -13,6 +15,7 @@ export default async function TeacherDashboard() {
   const session = await auth()
   if (!session?.user) redirect("/login")
 
+  const candidate = stagingAuthScope()?.candidate === true
   const now      = new Date()
   const nextWeek = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
 
@@ -95,16 +98,27 @@ export default async function TeacherDashboard() {
         todayCount={todayTodos.length}
       />
 
-      <DashboardAnnouncements />
+      {candidate ? (
+        <section className="space-y-2">
+          <h2 className="font-semibold">私有驗收</h2>
+          <p>可查閱班級、行事曆及待辦事項。</p>
+          {session.user.role === "ADMIN" && (
+            <Link prefetch={false} className="underline" href="/teacher/admin/groups">查看群組管理</Link>
+          )}
+        </section>
+      ) : <DashboardAnnouncements />}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
         <UnifiedTimeline initialItems={timelineItems} />
         <MiniCalendar todos={serializedTodos} calendarEvents={serializedCalendar} />
       </div>
 
-      <FavoriteToolsGrid />
-
-      <CommitteeToolsGrid />
+      {!candidate && (
+        <>
+          <FavoriteToolsGrid />
+          <CommitteeToolsGrid />
+        </>
+      )}
     </div>
   )
 }

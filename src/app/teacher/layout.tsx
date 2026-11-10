@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth"
+import { stagingAuthScope } from "@/lib/staging-prisma-scope.mjs"
 import { redirect } from "next/navigation"
 import { TeacherSidebar } from "@/components/teacher/TeacherSidebar"
 import { SessionTimeoutWatcher } from "@/components/SessionTimeoutWatcher"
@@ -33,7 +34,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
       <main className="flex-1 min-w-0 md:ml-[220px] pt-14 md:pt-0">
         {children}
       </main>
-      <AskKeida />
+      {!stagingAuthScope()?.candidate && <AskKeida />}
     </div>
   )
 }
