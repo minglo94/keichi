@@ -25,3 +25,12 @@ test('release requires the canonical HTTPS hostname and authenticated TLS databa
     assert.equal(releaseDatabase(new Request('https://' + host), { ...env, ...invalid }), null);
   }
 });
+
+test('production scheduled endpoints require an explicit activation flag', () => {
+  for (const path of ['/api/cron/after-school', '/api/cron/build-student-profiles', '/%61pi/cron/after-school']) {
+    const request = new Request('https://' + host + path, { method: 'POST' });
+    assert.equal(releaseDatabase(request, env), null);
+    assert.equal(releaseDatabase(request, { ...env, DAZHI_ENABLE_SCHEDULED_JOBS: 'false' }), null);
+    assert.equal(releaseDatabase(request, { ...env, DAZHI_ENABLE_SCHEDULED_JOBS: 'true' }), env.DATABASE_URL);
+  }
+});
