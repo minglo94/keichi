@@ -19,3 +19,12 @@ test('Google configuration stays within the staging request that received it', a
  assert.deepEqual(results, [google, undefined]);
  assert.equal(stagingAuthScope(), undefined);
 });
+
+test('candidate credential mode is opt-in and isolated across requests', async () => {
+ const states = await Promise.all([
+  runScoped('candidate', async () => { await delay(5); return stagingAuthScope()?.candidate; }, undefined, true),
+  runScoped('synthetic', async () => { await delay(1); return stagingAuthScope()?.candidate; }),
+ ]);
+ assert.deepEqual(states, [true, false]);
+ assert.equal(stagingAuthScope(), undefined);
+});

@@ -66,7 +66,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
           const rl = await checkRateLimit(`login:${email.toLowerCase()}`, 10, 15 * 60 * 1000, { failClosed: true })
           if (!rl.allowed) return null
 
-          const user = await prisma.user.findUnique({ where: { email } })
+          const fields = { id: true, email: true, name: true, image: true, role: true, password: true } as const
+          const user = staging?.candidate
+            ? (await prisma.$queryRaw<{ id: string; email: string; name: string | null; image: string | null; role: Role; password: string }[]>
+                `SELECT id, email, name, image, role, password FROM dazhi_acceptance.credential_users WHERE email = ${email}`)[0]
+            : await prisma.user.findUnique({ where: { email }, select: fields })
           if (!user?.password) return null
 
           const valid = await bcrypt.compare(

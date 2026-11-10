@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 const key=Symbol.for('dazhi.migration.staging.prisma.context.v1');
 const storage=globalThis[key] ??= new AsyncLocalStorage();
-export function runScoped(connectionString, fn, google){ return storage.run({connectionString,client:null,google}, fn); }
+export function runScoped(connectionString, fn, google, candidate = false){ return storage.run({connectionString,client:null,google,candidate}, fn); }
 export function stagingAuthScope(){ return storage.getStore(); }
 export function makeScopedProxy(makeClient, fallback){
  return new Proxy({}, {get(_target,prop){
