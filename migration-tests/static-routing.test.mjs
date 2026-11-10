@@ -25,3 +25,15 @@ test('approved todo creation reaches application after authentication',async()=>
  const res=await routeRequest(new Request('https://example.test/api/todos',{method:'POST',headers:{authorization:auth}}),env,{},async()=>{hit=true;return new Response('app',{status:201})});
  assert.equal(res.status,201);assert.equal(hit,true);
 });
+test('encoded dynamic route chunks and the logo use assets without reaching the application', async () => {
+  const paths = [];
+  const env = { STAGING_BASIC_AUTH: 'user:pass', ASSETS: { fetch: async request => {
+    paths.push(new URL(request.url).pathname);
+    return new Response('asset');
+  }}};
+  for (const path of ['/_next/static/chunks/%5Btype%5D/page.js','/_next/image?url=%2Flogo.png','/favicon.ico']) {
+    const result = await routeRequest(new Request('https://example.test'+path,{headers:{authorization:auth}}),env,{},()=>assert.fail('application reached'));
+    assert.equal(result.status,200);
+  }
+  assert.deepEqual(paths,['/_next/static/chunks/%5Btype%5D/page.js','/logo.png','/logo.png']);
+});
