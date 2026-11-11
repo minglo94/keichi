@@ -13,6 +13,7 @@ export function permittedInStaging(request, googleEnabled = false) {
   if (path.includes('%') || path === '/_next/image') return false;
   if (path === '/api/cron' || path.startsWith('/api/cron/') || path === '/api/oauth' || path.startsWith('/api/oauth/')) return false;
   if (path === '/api/auth/signin/google') return googleEnabled && method === 'POST';
+  if (path.startsWith('/api/auth/signin/')) return false;
   if (path === '/api/auth/callback/google') return googleEnabled && method === 'GET';
   if (path.startsWith('/api/auth/callback/') && path !== '/api/auth/callback/credentials') return false;
   if (method === 'GET' || method === 'HEAD') return true;
