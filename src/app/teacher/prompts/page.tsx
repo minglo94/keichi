@@ -2,6 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
+import {
+  PROMPT_SCHOOL_SUBJECT_GROUPS,
+  getPromptSchoolSubjectLabel,
+  isPromptSchoolSubject,
+  type PromptSchoolSubject,
+} from "@/lib/prompt-school-subjects"
 
 type Subject = "LESSON" | "MATERIAL" | "ASSESSMENT" | "FEEDBACK" | "PARENT" | "CLASSROOM" | "ADMIN" | "PD"
 type PType   = "PLAN" | "CREATE" | "ASSESS" | "COMMUNICATE"
@@ -9,6 +15,7 @@ type PType   = "PLAN" | "CREATE" | "ASSESS" | "COMMUNICATE"
 type Prompt = {
   id:          string
   subject:     Subject
+  schoolSubject: PromptSchoolSubject | null
   type:        PType
   title:       string
   tags:        string[]
@@ -40,6 +47,25 @@ const TYPE_TABS: { id: PType | "ALL"; label: string }[] = [
   { id: "ALL", label: "全部" }, { id: "PLAN", label: "規劃" }, { id: "CREATE", label: "創作" },
   { id: "ASSESS", label: "評估" }, { id: "COMMUNICATE", label: "溝通" },
 ]
+
+function schoolSubjectOptions() {
+  return PROMPT_SCHOOL_SUBJECT_GROUPS.map((group) => (
+    <optgroup key={group.label} label={group.label}>
+      {group.options.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+    </optgroup>
+  ))
+}
+
+function SchoolSubjectBadge({ value }: { value: PromptSchoolSubject | null }) {
+  const label = getPromptSchoolSubjectLabel(value)
+  if (!label) return null
+
+  return (
+    <span className="px-2 py-0.5 text-[11px] font-medium rounded-pill" style={{ background: "#E6FFFA", color: "#234E52" }}>
+      {label}
+    </span>
+  )
+}
 
 // ── Placeholder parsing (ported from js/app.js) ──────────────────────────────
 const PH_RE = /【在此填上([^】]*)】/g
@@ -85,7 +111,7 @@ function renderFilledSegments(prompt: string, values: Record<string, string>): S
   return segments
 }
 
-const emptyForm = () => ({ subject: "LESSON" as Subject, type: "PLAN" as PType, title: "", tagsInput: "", promptText: "" })
+const emptyForm = (schoolSubject: PromptSchoolSubject | null = null) => ({ schoolSubject, subject: "LESSON" as Subject, type: "PLAN" as PType, title: "", tagsInput: "", promptText: "" })
 
 export default function PromptLibraryPage() {
   const { data: session } = useSession()
@@ -95,6 +121,7 @@ export default function PromptLibraryPage() {
   const [prompts, setPrompts] = useState<Prompt[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [schoolSubjectFilter, setSchoolSubjectFilter] = useState("ALL")
   const [subjectFilter, setSubjectFilter] = useState<Subject | "ALL">("ALL")
   const [typeFilter,    setTypeFilter]    = useState<PType | "ALL">("ALL")
   const [search,        setSearch]        = useState("")
@@ -122,22 +149,24 @@ export default function PromptLibraryPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return prompts.filter((p) => {
+      const matchSchoolSubject = schoolSubjectFilter === "ALL" || (p.schoolSubject ?? "") === schoolSubjectFilter
       const matchSubject = subjectFilter === "ALL" || p.subject === subjectFilter
       const matchType    = typeFilter    === "ALL" || p.type    === typeFilter
       const matchSearch  = !q ||
+        getPromptSchoolSubjectLabel(p.schoolSubject)?.toLowerCase().includes(q) ||
         p.title.toLowerCase().includes(q) ||
         p.promptText.toLowerCase().includes(q) ||
         p.tags.some((t) => t.toLowerCase().includes(q))
-      return matchSubject && matchType && matchSearch
+      return matchSchoolSubject && matchSubject && matchType && matchSearch
     })
-  }, [prompts, subjectFilter, typeFilter, search])
+  }, [prompts, schoolSubjectFilter, subjectFilter, typeFilter, search])
 
   function canManage(p: Prompt) {
     return !!userId && (p.createdById === userId || isAdmin)
   }
 
   function resetFilters() {
-    setSubjectFilter("ALL"); setTypeFilter("ALL"); setSearch("")
+    setSchoolSubjectFilter("ALL"); setSubjectFilter("ALL"); setTypeFilter("ALL"); setSearch("")
   }
 
   // ── Fill-in modal ──────────────────────────────────────────────────────────
@@ -179,11 +208,13 @@ export default function PromptLibraryPage() {
 
   // ── Add/edit modal ─────────────────────────────────────────────────────────
   function openAdd() {
-    setFormErr(null); setForm(emptyForm()); setEditPrompt("new")
+    setFormErr(null)
+    setForm(emptyForm(isPromptSchoolSubject(schoolSubjectFilter) ? schoolSubjectFilter : null))
+    setEditPrompt("new")
   }
   function openEdit(p: Prompt) {
     setFormErr(null)
-    setForm({ subject: p.subject, type: p.type, title: p.title, tagsInput: p.tags.join(", "), promptText: p.promptText })
+    setForm({ schoolSubject: p.schoolSubject, subject: p.subject, type: p.type, title: p.title, tagsInput: p.tags.join(", "), promptText: p.promptText })
     setEditPrompt(p)
   }
   function closeManage() { setEditPrompt(null) }
@@ -193,6 +224,7 @@ export default function PromptLibraryPage() {
     setSaving(true); setFormErr(null)
     const body = {
       subject:    form.subject,
+      schoolSubject: form.schoolSubject,
       type:       form.type,
       title:      form.title.trim(),
       tags:       form.tagsInput.split(",").map((t) => t.trim()).filter(Boolean),
@@ -252,7 +284,16 @@ export default function PromptLibraryPage() {
         </button>
       </div>
 
-      {/* Subject nav */}
+      <div className="mb-4 max-w-xs">
+        <label htmlFor="prompt-school-subject-filter" className="text-caption font-semibold block mb-1">按科目篩選</label>
+        <select id="prompt-school-subject-filter" value={schoolSubjectFilter} onChange={(e) => setSchoolSubjectFilter(e.target.value)} className={inputCls} style={inputStyle}>
+          <option value="ALL">全部科目</option>
+          <option value="">通用（不指定科目）</option>
+          {schoolSubjectOptions()}
+        </select>
+      </div>
+
+      {/* Use category nav */}
       <div className="flex flex-wrap gap-2 mb-3">
         {SUBJECTS.map((s) => {
           const active = subjectFilter === s.id
@@ -334,6 +375,7 @@ export default function PromptLibraryPage() {
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="px-2 py-0.5 text-[11px] font-medium rounded-pill text-white" style={{ background: subj.color }}>{subj.label}</span>
                     <span className="px-2 py-0.5 text-[11px] font-medium rounded-pill" style={{ background: tm.bg, color: tm.color }}>{tm.label}</span>
+                    <SchoolSubjectBadge value={p.schoolSubject} />
                   </div>
                   <h3 className="text-h3">{p.title}</h3>
                   <p className="text-caption line-clamp-3" style={{ color: "var(--color-ink-500)" }}>
@@ -376,9 +418,10 @@ export default function PromptLibraryPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }} onClick={closeView}>
             <div className="card w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="p-5" style={{ borderBottom: `4px solid ${subj.color}` }}>
-                <div className="flex items-center gap-1.5 mb-2">
+                <div className="flex flex-wrap items-center gap-1.5 mb-2">
                   <span className="px-2 py-0.5 text-[11px] font-medium rounded-pill text-white" style={{ background: subj.color }}>{subj.label}</span>
                   <span className="px-2 py-0.5 text-[11px] font-medium rounded-pill" style={{ background: tm.bg, color: tm.color }}>{tm.label}</span>
+                  <SchoolSubjectBadge value={viewPrompt.schoolSubject} />
                 </div>
                 <h2 className="text-h2">{viewPrompt.title}</h2>
               </div>
@@ -435,9 +478,20 @@ export default function PromptLibraryPage() {
           <form onSubmit={save} className="card w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-h2">{editPrompt === "new" ? "新增提示詞" : "編輯提示詞"}</h2>
 
+            <div>
+              <label htmlFor="prompt-school-subject" className="text-caption block mb-1" style={{ color: "var(--color-ink-700)" }}>科目</label>
+              <select id="prompt-school-subject" value={form.schoolSubject ?? ""} onChange={(e) => {
+                const value = e.target.value
+                setForm({ ...form, schoolSubject: isPromptSchoolSubject(value) ? value : null })
+              }} className={inputCls} style={inputStyle}>
+                <option value="">通用（不指定科目）</option>
+                {schoolSubjectOptions()}
+              </select>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-caption block mb-1" style={{ color: "var(--color-ink-700)" }}>分類</label>
+                <label className="text-caption block mb-1" style={{ color: "var(--color-ink-700)" }}>用途</label>
                 <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value as Subject })} className={inputCls} style={inputStyle}>
                   {SUBJECTS.filter((s) => s.id !== "ALL").map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                 </select>

@@ -906,6 +906,7 @@ model CommitteeTool {
 model Prompt {
   id          String        @id @default(cuid())
   subject     PromptSubject
+  schoolSubject String?       // null = 通用
   type        PromptType
   title       String
   tags        String[]

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { isTeacherOrAdmin, isAdmin } from "@/lib/roles"
 import { prisma } from "@/lib/prisma"
+import { isPromptSchoolSubject, type PromptSchoolSubject } from "@/lib/prompt-school-subjects"
 import { z } from "zod"
 import type { Role } from "@prisma/client"
 
@@ -10,6 +11,7 @@ const TYPES    = ["PLAN", "CREATE", "ASSESS", "COMMUNICATE"] as const
 
 const patchSchema = z.object({
   subject:    z.enum(SUBJECTS).optional(),
+  schoolSubject: z.custom<PromptSchoolSubject>(isPromptSchoolSubject, "請選擇有效的科目").nullish(),
   type:       z.enum(TYPES).optional(),
   title:      z.string().min(1).max(200).optional(),
   tags:       z.array(z.string().max(30)).max(20).optional(),
@@ -35,11 +37,18 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const data = patchSchema.parse(await req.json())
+  const parsed = patchSchema.safeParse(await req.json().catch(() => null))
+  if (!parsed.success) {
+    const subjectIssue = parsed.error.issues.find((issue) => issue.path[0] === "schoolSubject")
+    return NextResponse.json(
+      { error: subjectIssue?.message ?? "提示詞資料格式不正確" },
+      { status: 400 },
+    )
+  }
 
   const updated = await prisma.prompt.update({
     where: { id: params.id },
-    data,
+    data: parsed.data,
     include: { createdBy: { select: { id: true, name: true } } },
   })
 
