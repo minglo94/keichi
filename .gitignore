@@ -31,3 +31,7 @@ prisma/*.db
 prisma/*.db-journal
 .env
 /docs
+# Temporary Cloudflare migration build artifacts
+.open-next/
+.cf-dry-run/
+.wrangler/

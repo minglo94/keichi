@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { auth } from "@/lib/auth"
 import { isTeacherOrAdmin } from "@/lib/roles"
-import { streamLLM, completeLLM, type LLMMessage } from "@/lib/llm"
+import { streamLLM, completeLLM, getLLMConfig, type LLMMessage } from "@/lib/llm"
 import {
   loadCharter, parseRoute, parseDocReady, parseDocType,
   parseNeedsApproval, parseDocTitle, agentId, inferTitleFromContent,
@@ -37,8 +37,9 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: "未登入或無權限" }), { status: 401 })
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return new Response(JSON.stringify({ error: "伺服器未設定 ANTHROPIC_API_KEY，請聯絡 IT 主任。" }), { status: 503 })
+  const llmConfig = await getLLMConfig()
+  if (!llmConfig.hasKey) {
+    return new Response(JSON.stringify({ error: "目前選用的 AI 服務未設定金鑰，請聯絡 IT 主任。" }), { status: 503 })
   }
 
   const limited = await aiRateLimit(session.user.id, session.user.role, "agents")

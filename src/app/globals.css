@@ -4,6 +4,10 @@
 
 /* ── Design token custom properties ── */
 :root {
+  /* Use installed fonts so Cloudflare builds do not depend on Google Fonts. */
+  --font-inter: "Inter";
+  --font-noto-sans-tc: "Noto Sans TC", "PingFang HK", "Microsoft JhengHei", "Noto Sans CJK TC";
+
   /* Backgrounds / surfaces */
   --color-bg:           oklch(98.5% 0 240);
   --color-surface:      oklch(100% 0 240);
