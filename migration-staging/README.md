@@ -31,7 +31,7 @@ For a manual release, build with the same public key and upload first:
 
 ```sh
 pnpm run cf:build
-npx --yes wrangler@4.158.0 versions upload --config wrangler.jsonc \
+pnpm exec wrangler versions upload --config wrangler.jsonc \
   --var "NEXT_PUBLIC_VAPID_PUBLIC_KEY:${NEXT_PUBLIC_VAPID_PUBLIC_KEY:?Set the production VAPID public key}"
 ```
 

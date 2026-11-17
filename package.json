@@ -8,7 +8,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "cf:build": ": \"${NEXT_PUBLIC_VAPID_PUBLIC_KEY:?Set NEXT_PUBLIC_VAPID_PUBLIC_KEY in the Cloudflare build environment}\" && opennextjs-cloudflare build -c migration-staging/wrangler.release-build.jsonc",
-    "cf:deploy": ": \"${NEXT_PUBLIC_VAPID_PUBLIC_KEY:?Set NEXT_PUBLIC_VAPID_PUBLIC_KEY in the Cloudflare build environment}\" && npx --yes wrangler@4.158.0 deploy --config wrangler.jsonc --var \"NEXT_PUBLIC_VAPID_PUBLIC_KEY:$NEXT_PUBLIC_VAPID_PUBLIC_KEY\"",
+    "cf:deploy": ": \"${NEXT_PUBLIC_VAPID_PUBLIC_KEY:?Set NEXT_PUBLIC_VAPID_PUBLIC_KEY in the Cloudflare build environment}\" && wrangler deploy --config wrangler.jsonc --var \"NEXT_PUBLIC_VAPID_PUBLIC_KEY:$NEXT_PUBLIC_VAPID_PUBLIC_KEY\"",
     "lint": "next lint",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
@@ -82,6 +82,7 @@
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
     "tsx": "^4.22.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "4.158.0"
   }
 }
