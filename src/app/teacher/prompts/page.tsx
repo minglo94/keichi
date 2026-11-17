@@ -57,8 +57,7 @@ function schoolSubjectOptions() {
 }
 
 function SchoolSubjectBadge({ value }: { value: PromptSchoolSubject | null }) {
-  const label = getPromptSchoolSubjectLabel(value)
-  if (!label) return null
+  const label = getPromptSchoolSubjectLabel(value) ?? "通用"
 
   return (
     <span className="px-2 py-0.5 text-[11px] font-medium rounded-pill" style={{ background: "#E6FFFA", color: "#234E52" }}>
@@ -111,7 +110,7 @@ function renderFilledSegments(prompt: string, values: Record<string, string>): S
   return segments
 }
 
-const emptyForm = (schoolSubject: PromptSchoolSubject | null = null) => ({ schoolSubject, subject: "LESSON" as Subject, type: "PLAN" as PType, title: "", tagsInput: "", promptText: "" })
+const emptyForm = () => ({ schoolSubject: null as PromptSchoolSubject | null, subject: "LESSON" as Subject, type: "PLAN" as PType, title: "", tagsInput: "", promptText: "" })
 
 export default function PromptLibraryPage() {
   const { data: session } = useSession()
@@ -120,6 +119,7 @@ export default function PromptLibraryPage() {
 
   const [prompts, setPrompts] = useState<Prompt[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   const [schoolSubjectFilter, setSchoolSubjectFilter] = useState("ALL")
   const [subjectFilter, setSubjectFilter] = useState<Subject | "ALL">("ALL")
@@ -141,8 +141,12 @@ export default function PromptLibraryPage() {
 
   useEffect(() => {
     fetch("/api/prompts")
-      .then((r) => r.ok ? r.json() : [])
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load prompts")
+        return r.json()
+      })
       .then((d: Prompt[]) => setPrompts(d))
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false))
   }, [])
 
@@ -153,7 +157,7 @@ export default function PromptLibraryPage() {
       const matchSubject = subjectFilter === "ALL" || p.subject === subjectFilter
       const matchType    = typeFilter    === "ALL" || p.type    === typeFilter
       const matchSearch  = !q ||
-        getPromptSchoolSubjectLabel(p.schoolSubject)?.toLowerCase().includes(q) ||
+        (getPromptSchoolSubjectLabel(p.schoolSubject) ?? "通用").toLowerCase().includes(q) ||
         p.title.toLowerCase().includes(q) ||
         p.promptText.toLowerCase().includes(q) ||
         p.tags.some((t) => t.toLowerCase().includes(q))
@@ -209,7 +213,7 @@ export default function PromptLibraryPage() {
   // ── Add/edit modal ─────────────────────────────────────────────────────────
   function openAdd() {
     setFormErr(null)
-    setForm(emptyForm(isPromptSchoolSubject(schoolSubjectFilter) ? schoolSubjectFilter : null))
+    setForm(emptyForm())
     setEditPrompt("new")
   }
   function openEdit(p: Prompt) {
@@ -239,6 +243,9 @@ export default function PromptLibraryPage() {
     if (res.ok) {
       const saved: Prompt = await res.json()
       setPrompts((prev) => isNew ? [...prev, saved] : prev.map((p) => p.id === saved.id ? saved : p))
+      if (isNew && schoolSubjectFilter !== "ALL" && (saved.schoolSubject ?? "") !== schoolSubjectFilter) {
+        setSchoolSubjectFilter(saved.schoolSubject ?? "")
+      }
       setEditPrompt(null)
     } else {
       const d = await res.json().catch(() => ({}))
@@ -350,11 +357,13 @@ export default function PromptLibraryPage() {
 
       {/* Result summary */}
       <p className="text-caption mb-3" style={{ color: "var(--color-ink-400)" }}>
-        {filtered.length === prompts.length ? `顯示全部 ${prompts.length} 條提示詞` : `顯示 ${filtered.length} / ${prompts.length} 條提示詞`}
+        {loadError ? null : filtered.length === prompts.length ? `顯示全部 ${prompts.length} 條提示詞` : `顯示 ${filtered.length} / ${prompts.length} 條提示詞`}
       </p>
 
       {loading ? (
         <p className="text-body text-center py-12" style={{ color: "var(--color-ink-300)" }}>載入中…</p>
+      ) : loadError ? (
+        <p role="alert" className="card p-6 text-body text-center">未能載入提示詞，請重新整理頁面再試。</p>
       ) : filtered.length === 0 ? (
         <div className="card p-10 text-center">
           <p className="text-h3 mb-1">🔎 找不到符合條件的提示詞</p>
