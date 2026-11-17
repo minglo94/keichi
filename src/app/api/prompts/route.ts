@@ -10,7 +10,7 @@ const TYPES    = ["PLAN", "CREATE", "ASSESS", "COMMUNICATE"] as const
 
 const createSchema = z.object({
   subject:    z.enum(SUBJECTS),
-  schoolSubject: z.custom<PromptSchoolSubject>(isPromptSchoolSubject, "請選擇有效的科目").nullish(),
+  schoolSubject: z.custom<PromptSchoolSubject>(isPromptSchoolSubject, "請選擇有效的科目").nullish().default(null),
   type:       z.enum(TYPES),
   title:      z.string().min(1).max(200),
   tags:       z.array(z.string().max(30)).max(20).default([]),
