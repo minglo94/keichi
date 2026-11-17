@@ -2,10 +2,13 @@
   "name": "dazhi",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.25.0",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
+    "cf:build": ": \"${NEXT_PUBLIC_VAPID_PUBLIC_KEY:?Set NEXT_PUBLIC_VAPID_PUBLIC_KEY in the Cloudflare build environment}\" && opennextjs-cloudflare build -c migration-staging/wrangler.release-build.jsonc",
+    "cf:deploy": ": \"${NEXT_PUBLIC_VAPID_PUBLIC_KEY:?Set NEXT_PUBLIC_VAPID_PUBLIC_KEY in the Cloudflare build environment}\" && wrangler deploy --config wrangler.jsonc --var \"NEXT_PUBLIC_VAPID_PUBLIC_KEY:$NEXT_PUBLIC_VAPID_PUBLIC_KEY\"",
     "lint": "next lint",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
@@ -30,6 +33,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@auth/prisma-adapter": "^2.7.4",
+    "@neondatabase/serverless": "1.0.2",
+    "@prisma/adapter-neon": "6.19.2",
     "@prisma/client": "^6.2.1",
     "@react-email/components": "^1.0.11",
     "@types/bcryptjs": "^3.0.0",
@@ -61,6 +66,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "1.20.16",
     "@types/file-saver": "^2.0.7",
     "@types/heic-convert": "^2.1.1",
     "@types/node": "^20",
@@ -76,6 +82,7 @@
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
     "tsx": "^4.22.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "4.158.0"
   }
 }

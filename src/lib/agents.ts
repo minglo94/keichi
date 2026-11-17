@@ -1,15 +1,19 @@
-import fs from "fs";
-import path from "path";
+import dispatcherCharter from "../../prompts/agents/a01-dispatcher.md";
+import adaCharter from "../../prompts/agents/a02-ada.md";
+import ethanCharter from "../../prompts/agents/a03-ethan.md";
+import carlaCharter from "../../prompts/agents/a04-carla.md";
+import andyCharter from "../../prompts/agents/a05-andy.md";
+import donnaCharter from "../../prompts/agents/a06-donna.md";
 
 export type AgentKey = "dispatcher" | "ada" | "ethan" | "carla" | "andy" | "donna";
 
-const AGENT_FILES: Record<AgentKey, string> = {
-  dispatcher: "a01-dispatcher.md",
-  ada:        "a02-ada.md",
-  ethan:      "a03-ethan.md",
-  carla:      "a04-carla.md",
-  andy:       "a05-andy.md",
-  donna:      "a06-donna.md",
+const AGENT_CHARTERS: Record<AgentKey, string> = {
+  dispatcher: dispatcherCharter,
+  ada:        adaCharter,
+  ethan:      ethanCharter,
+  carla:      carlaCharter,
+  andy:       andyCharter,
+  donna:      donnaCharter,
 };
 
 const AGENT_IDS: Record<AgentKey, string> = {
@@ -21,21 +25,15 @@ const AGENT_IDS: Record<AgentKey, string> = {
   donna:      "A06",
 };
 
-const charterCache = new Map<AgentKey, string>();
-
 export function loadCharter(agent: AgentKey): string {
-  if (charterCache.has(agent)) return charterCache.get(agent)!;
-  const filePath = path.join(process.cwd(), "prompts", "agents", AGENT_FILES[agent]);
-  const content = fs.readFileSync(filePath, "utf-8");
-  charterCache.set(agent, content);
-  return content;
+  return AGENT_CHARTERS[agent];
 }
 
 export function parseRoute(text: string): AgentKey | null {
   const match = text.match(/\[ROUTE:(\w+)\]/);
   if (!match) return null;
   const key = match[1] as AgentKey;
-  return key in AGENT_FILES ? key : null;
+  return key in AGENT_CHARTERS ? key : null;
 }
 
 export function parseDocReady(text: string): boolean {

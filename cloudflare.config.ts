@@ -1,0 +1,2 @@
+import { bindings, defineConfig } from 'cf/config';
+export default defineConfig({worker:{name:'dazhi-migration-spike',compatibilityDate:'2026-11-01',compatibilityFlags:['nodejs_compat'],entrypoint:'./staging-worker.mjs',assets:{runWorkerFirst:true},env:{ASSETS:bindings.assets(),AUTH_SECRET:bindings.secret(),AUTH_GOOGLE_ID:bindings.secret(),AUTH_GOOGLE_SECRET:bindings.secret(),STAGING_GOOGLE_EMAIL:bindings.secret(),STAGING_BASIC_AUTH:bindings.secret(),STAGING_DATABASE_URL:bindings.secret()}}});
