@@ -30,9 +30,9 @@ self.addEventListener("push", (event) => {
     data:  { link: data.link || "/teacher" },
     // Group by link so a burst (e.g. a broadcast) doesn't stack up.
     tag:   typeof data.tag === "string" ? data.tag : data.link || "keichi-notification",
-    // Scheduled reminder stages have distinct tags, so the afternoon push
-    // remains a new notification even if the morning one is still displayed.
-    renotify: typeof data.tag === "string",
+    // A fresh message with the same link replaces the old notification, but
+    // should still alert the device. Scheduled stages can supply unique tags.
+    renotify: true,
   }
 
   event.waitUntil(self.registration.showNotification(title, options))
