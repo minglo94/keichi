@@ -4,7 +4,8 @@ The OpenNext build requires `html_handling` and `not_found_handling` set to
 `none`, so build with `wrangler.release-build.jsonc`. The production wrapper
 uses `env.ASSETS.fetch(request)` before Next.js; uploading with those two
 settings caused Cloudflare 1102 on the school hostname. Upload with
-`wrangler.release.jsonc`, whose asset routing was verified on the live site.
+`wrangler.release.jsonc`, whose asset routing was verified on the live site. This release path uses the explicit Wrangler JSON files; the
+experimental TypeScript CLI configs are excluded from Next.js type checking.
 
 1. Set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in the build environment to the public
    key paired with the deployed `VAPID_PRIVATE_KEY`. Never commit the private
