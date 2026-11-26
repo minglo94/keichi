@@ -26,7 +26,8 @@ export function AfterSchoolSetupGuide() {
           伺服器另設至少32字元的隨機AFTERSCHOOL_CRON_SECRET，以及既有VAPID公私鑰。排程器只保管排程密鑰，不需要Google私鑰。
         </li>
         <li>
-          外部排程器每分鐘POST下列網址；加入Authorization標頭，值為Bearer加一個空格再加排程密鑰。Google
+          Cloudflare正式部署已配置每分鐘排程，伺服器須設定DAZHI_ENABLE_SCHEDULED_JOBS=true及上述排程密鑰。可在Worker執行紀錄搜尋after-school-cron核對結果。
+          如改用外部排程器，請每分鐘POST下列網址；加入Authorization標頭，值為Bearer加一個空格再加排程密鑰。Google
           Cloud
           Scheduler可用HTTP目標及自訂標頭；不要選OIDC/OAuth自動產生的token，這個端點驗證的是獨立排程密鑰。
         </li>

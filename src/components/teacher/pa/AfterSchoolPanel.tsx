@@ -119,7 +119,7 @@ export function AfterSchoolPanel({
         )}
       </div>
       <p className="text-sm">
-        自動流程：{config?.enabled ? "已啟用（須由外部排程器觸發）" : "未啟用"}
+        自動流程：{config?.enabled ? "已啟用（由伺服器排程觸發）" : "未啟用"}
         　| Google來源：{ready.source ? "已配置" : "未配置"}　| 裝置推送：
         {ready.push ? "已配置" : "未配置"}　| 排程密鑰：
         {ready.scheduler ? "已配置" : "未配置"}

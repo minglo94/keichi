@@ -1,8 +1,12 @@
 import application from '../.open-next/worker.js';
 import { runProductionScoped } from '../src/lib/staging-prisma-scope.mjs';
 import { releaseDatabase } from './release-request.mjs';
+import { runAfterSchoolSchedule } from './release-scheduled.mjs';
 
 export default {
+  async scheduled(controller, env, ctx) {
+    await runAfterSchoolSchedule(application, controller, env, ctx);
+  },
   async fetch(request, env, ctx) {
     const connection = releaseDatabase(request, env);
     if (!connection) {
