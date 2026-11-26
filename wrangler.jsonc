@@ -12,5 +12,7 @@
     "binding": "ASSETS",
     "run_worker_first": true
   },
-  "keep_vars": true
+  "keep_vars": true,
+  "triggers": { "crons": ["* * * * *"] },
+  "observability": { "enabled": true }
 }
